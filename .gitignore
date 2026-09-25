@@ -1,0 +1,38 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+catboost_info/
+.ipynb_checkpoints/
+
+# Данные оргов: тяжёлые, каждый скачивает сам по ссылке из docs/TASK_DESCRIPTION.md и распаковывает в data/
+dataset.zip
+data/*
+!data/README_DATASET.md
+!data/DATASET_README.md
+!data/dataset_docs/
+!data/sample_submission.csv
+
+# Образ эмулятора NDTP (134 МБ) — из архива оргов, грузится через docker load
+*.tar
+
+# Видео и медиа
+*.mp4
+*.MP4
+*.mov
+*.MOV
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Секреты и окружение
+.env
+.env.*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

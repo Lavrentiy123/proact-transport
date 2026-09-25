@@ -1,0 +1,10 @@
+# LF везде: код собирается и запускается в Linux-контейнерах (start.sh с CRLF не запустится)
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cbm binary
+*.onnx binary
+*.pdf binary
+*.jpg binary
+*.png binary
+*.pmtiles binary
