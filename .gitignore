@@ -6,16 +6,10 @@ __pycache__/
 catboost_info/
 .ipynb_checkpoints/
 
-# Данные оргов: тяжёлые, каждый скачивает сам по ссылке из docs/TASK_DESCRIPTION.md и распаковывает в data/
+# Данные оргов лежат в data/ (CSV — обычный git, образ эмулятора — Git LFS).
+# Архив dataset.zip — дубликат содержимого data/, в репозиторий не кладём.
 dataset.zip
-data/*
-!data/README_DATASET.md
-!data/DATASET_README.md
-!data/dataset_docs/
-!data/sample_submission.csv
-
-# Образ эмулятора NDTP (134 МБ) — из архива оргов, грузится через docker load
-*.tar
+data/dataset.zip
 
 # Видео и медиа
 *.mp4

@@ -102,7 +102,10 @@
 ├── docs/
 │   ├── roadmap_minimal_ru.jpg
 │   └── transport_hackathon_roadmap.jpg
-├── data/                   # Каталог под датасеты хакатона (NDTP, расписание, остановки)
-│   └── README_DATASET.md   # Памятка по структуре и ожидаемым полям данных
+├── data/                   # Датасет оргов: train/test/validate, labels, sample_submission
+│   ├── DATASET_README.md   # Официальное описание датасета и правил
+│   └── ndtp-telemetry-emulator.tar  # Docker-образ эмулятора NDTP (хранится в Git LFS)
 └── src/                    # Исходный код решения (сервисы, модели, интерфейс)
 ```
+
+**Данные после клонирования.** CSV лежат в `data/` сразу. Образ эмулятора (134 МБ) хранится в Git LFS и скачивается при `git clone`, если установлен Git LFS; иначе выполните `git lfs pull`. Загрузка в Docker: `docker load -i data/ndtp-telemetry-emulator.tar`.
