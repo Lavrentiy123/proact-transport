@@ -1,0 +1,83 @@
+# ПроАкт.Транспорт: docker compose up --build -d   (из корня репозитория)
+#   дашборд API и Swagger: http://localhost:8000/docs      ml-core: http://localhost:8001/docs
+#   поток по умолчанию — replay реального дня 06.01.2026 по NDTP на backend:9201 (сервис replay)
+#   официальный эмулятор: docker compose --profile emulator up -d   (нужен загруженный образ, см. docs/JURY_GUIDE.md)
+# Порты и параметры replay можно переопределить в .env (образец — .env.example).
+name: proact
+
+services:
+  ml-core:
+    build: {context: ., dockerfile: ml_core/Dockerfile}
+    image: proact-ml-core:local
+    ports: ["${ML_CORE_PORT:-8001}:8001"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/ready').status==200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build: {context: ., dockerfile: backend/Dockerfile}
+    image: proact-backend:local
+    depends_on:
+      ml-core: {condition: service_healthy}
+    environment:
+      ML_URL: http://ml-core:8001
+      NDTP_PORT: "9201"
+      REPLAY_START_AT: ${REPLAY_START_AT:-2026-01-06T07:00:00}
+      REPLAY_SPEED: ${REPLAY_SPEED:-10}
+      # Эмулятор в профиле emulator: backend сам шлёт ему POST /api/config (без профиля — тихо ждёт).
+      EMULATOR_API: ${EMULATOR_API:-http://ndtp-emulator:18080}
+      EMULATOR_TARGET_HOST: backend
+      EMULATOR_MODE: ${EMULATOR_MODE:-auto}
+      EMULATOR_UNITS: ${EMULATOR_UNITS:-3}
+      EMULATOR_INTERVAL_MS: ${EMULATOR_INTERVAL_MS:-5000}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+      - "${NDTP_PORT:-9201}:9201"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/ready').status==200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  # Источник потока по умолчанию: телеметрия data/test/traffic.csv → кадры NDTP → backend:9201.
+  # Время симуляции берётся у backend, поэтому `docker compose stop replay` — это настоящий обрыв потока,
+  # а `docker compose start replay` продолжает с текущего момента.
+  replay:
+    build: {context: ., dockerfile: backend/Dockerfile}   # тот же образ, что у backend (слои из кэша)
+    image: proact-replay:local
+    command: ["python", "-m", "backend.app.replay", "--host", "backend", "--port", "9201",
+              "--sync-url", "http://backend:8000"]
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck: {disable: true}   # HEALTHCHECK образа проверяет HTTP backend, у replay его нет
+    restart: unless-stopped
+
+  # TODO (слияние с веткой Пуртова): раскомментировать, когда в этой ветке появится frontend/.
+  # Блок совпадает с frontend/Dockerfile из origin/purtov/frontend-stage1: контекст ./frontend,
+  # nginx слушает 3000 и проксирует /api и /ws на backend:8000.
+  # frontend:
+  #   build: ./frontend
+  #   image: proact-frontend:local
+  #   depends_on:
+  #     backend: {condition: service_healthy}
+  #   ports: ["${FRONTEND_PORT:-3000}:3000"]
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+  #     interval: 5s
+  #     retries: 10
+  #   restart: unless-stopped
+
+  # Официальный эмулятор NDTP организаторов (TCP-клиент: сам подключается к backend:9201).
+  # Образ не собирается и не скачивается: docker load -i data/ndtp-telemetry-emulator.tar
+  ndtp-emulator:
+    image: ndtp-telemetry-emulator:1.0
+    pull_policy: never
+    profiles: ["emulator"]
+    ports: ["${EMULATOR_API_PORT:-18080}:18080"]
+    restart: unless-stopped
