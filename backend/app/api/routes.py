@@ -91,3 +91,11 @@ def journal_csv(request: Request):
     if body is None:
         raise HTTPException(status_code=404, detail="журнал есть только в живом режиме")
     return PlainTextResponse(body, media_type="text/csv; charset=utf-8")
+
+
+@router.get("/metrics", response_class=PlainTextResponse, tags=["metrics"],
+            summary="Метрики Prometheus: пакеты NDTP, CRC, тик и инференс p50/p99, WS, отброшенное")
+def metrics(request: Request):
+    from ..metrics import render
+    return PlainTextResponse(render(_hub(request), getattr(request.app.state, "broadcaster", None)),
+                             media_type="text/plain; version=0.0.4; charset=utf-8")
