@@ -1,6 +1,6 @@
 # Шпаргалка: ответы жюри по ML и данным
 
-> Сгенерировано `src/product/render_qa.py` из `models/model_card.json` (model_version `m_online-v1-7c6e169`). Ответ — не больше 3 предложений.
+> Сгенерировано `src/product/render_qa.py` из `models/model_card.json` (model_version `m_online-v2-ens-189b8fe`). Ответ — не больше 3 предложений.
 
 ## 1. Вы использовали утечку validate = test?
 

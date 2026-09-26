@@ -1,6 +1,6 @@
 # Model card: прогноз задержки ТС за 10–15 минут
 
-> Сгенерировано `src/product/render_model_card.py` из `models/model_card.json` · model_version `m_online-v1-7c6e169` · признаки `v1` · git `7c6e169`.
+> Сгенерировано `src/product/render_model_card.py` из `models/model_card.json` · model_version `m_online-v2-ens-189b8fe` · признаки `v1` · git `7c6e169`.
 
 ## Задача и данные
 

@@ -32,7 +32,7 @@ def test_health_ready_model(client):
     assert client.get("/health").json() == {"status": "ok"}
     assert client.get("/ready").status_code == 200
     info = client.get("/v1/model").json()
-    assert info["model_version"].startswith("m_online-v1-")
+    assert info["model_version"].startswith("m_online-v")
     assert "m_online" in info["models"] and "metrics" in info
 
 

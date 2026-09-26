@@ -3,6 +3,7 @@
 Проверки:
 - ``GET :8000/health`` == 200; ``GET :8001/ready`` == 200; ``GET :3000`` отдаёт HTML;
 - ``GET :8000/api/v1/vehicles`` — непустой список ``VehicleState``;
+- те же ``/api/v1/vehicles`` и ``/ws/live`` отвечают через nginx дашборда (как у браузера);
 - из ``/ws/live`` приходит ``WsMessage`` с ``type=snapshot`` и хотя бы одним бортом, у которого
   ``forecast.lead_s ∈ [600, 900]`` (ждём до 60 с — replay должен дойти до прогнозов).
 
@@ -60,10 +61,23 @@ def check_http(args) -> list[str]:
     return errs
 
 
-async def check_ws(args) -> list[str]:
+def check_via_frontend(args) -> list[str]:
+    """REST через прокси nginx дашборда: браузер ходит на тот же хост, что и страница."""
+    try:
+        r = httpx.get(f"{args.frontend}/api/v1/vehicles", timeout=10)
+        vs = [VehicleState.model_validate(v) for v in r.json()] if r.status_code == 200 else []
+        if vs:
+            print(f"OK  дашборд → /api/v1/vehicles (nginx): {len(vs)} бортов")
+            return []
+        return [f"дашборд → /api/v1/vehicles: HTTP {r.status_code}, бортов {len(vs)}"]
+    except Exception as e:
+        return [f"дашборд → /api/v1/vehicles: {type(e).__name__}: {e}"]
+
+
+async def check_ws(args, base: str | None = None, name: str = "/ws/live") -> list[str]:
     import websockets
 
-    url = args.backend.replace("http", "ws", 1) + "/ws/live"
+    url = (base or args.backend).replace("http", "ws", 1) + "/ws/live"
     deadline = time.time() + args.timeout
     n_msg = 0
     try:
@@ -77,13 +91,13 @@ async def check_ws(args) -> list[str]:
                 good = [v for v in msg.vehicles if v.forecast is not None and 600 <= v.forecast.lead_s <= 900]
                 if good:
                     f = good[0].forecast
-                    print(f"OK  /ws/live: {n_msg} сообщений, бортов {len(msg.vehicles)}, с прогнозом {len(good)}; "
+                    print(f"OK  {name}: {n_msg} сообщений, бортов {len(msg.vehicles)}, с прогнозом {len(good)}; "
                           f"пример: борт {good[0].tr_id} lead {f.lead_s} с, delay {f.delay_pred_s:.0f} с, "
                           f"risk {f.risk}, cause {f.cause.code}")
                     return []
     except Exception as e:
-        return [f"/ws/live: {type(e).__name__}: {e}"]
-    return [f"/ws/live: за {args.timeout} с нет snapshot с forecast.lead_s в [600, 900] ({n_msg} сообщений)"]
+        return [f"{name}: {type(e).__name__}: {e}"]
+    return [f"{name}: за {args.timeout} с нет snapshot с forecast.lead_s в [600, 900] ({n_msg} сообщений)"]
 
 
 def main(argv=None) -> int:
@@ -95,6 +109,9 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     errs = check_http(args)
     errs += asyncio.run(check_ws(args))
+    # то же через nginx дашборда — так, как ходит браузер (прокси /api и /ws на backend)
+    errs += check_via_frontend(args)
+    errs += asyncio.run(check_ws(args, args.frontend, "дашборд → /ws/live (nginx)"))
     print("E2E SMOKE " + ("OK" if not errs else "FAIL:\n  - " + "\n  - ".join(errs)))
     return 0 if not errs else 1
 
