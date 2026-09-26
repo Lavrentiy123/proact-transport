@@ -28,7 +28,8 @@ export default function WhatIfPanel({ forecast, speedToPlanKmh }: Props) {
   const lead = forecast.lead_s
   const distM = (speedToPlanKmh * lead) / 3.6
   const modelSpeed = (distM / Math.max(lead + forecast.delay_pred_s, 60)) * 3.6
-  const [speed, setSpeed] = useState(() => Math.round(clamp(modelSpeed)))
+  // шаг 0.1 км/ч: в начальном положении оценка совпадает с прогнозом модели (без скачка от округления)
+  const [speed, setSpeed] = useState(() => Math.round(clamp(modelSpeed) * 10) / 10)
   if (!(distM > 0) || !Number.isFinite(modelSpeed)) return null
 
   const delay = (distM / (speed / 3.6)) - lead
@@ -38,13 +39,15 @@ export default function WhatIfPanel({ forecast, speedToPlanKmh }: Props) {
     <div className="whatif-box" aria-label="Что если: скорость до остановки">
       <div className="whatif-title"><FlaskConical size={15} /> Что если · средняя скорость до остановки</div>
       <label className="whatif-slider">
-        <input type="range" min={MIN_KMH} max={MAX_KMH} step={1} value={speed}
+        <input type="range" min={MIN_KMH} max={MAX_KMH} step={0.1} value={speed}
           onChange={(event) => setSpeed(Number(event.target.value))} aria-label="Средняя скорость до остановки, км/ч" />
-        <strong>{speed} км/ч</strong>
+        <strong>{Math.round(speed)} км/ч</strong>
       </label>
       <div className="whatif-row"><span>Отклонение при этой скорости</span><strong>{formatDelay(delay)}</strong></div>
       <div className="whatif-row"><span>Прибытие</span><strong>{displayClock(arrival ?? undefined).slice(0, 5)}</strong></div>
-      <div className="whatif-row"><span>{gain >= 0 ? 'Отыгрывает к прогнозу модели' : 'Теряет к прогнозу модели'}</span><strong>{formatDelay(Math.abs(gain)).replace(/^\+/, '')}</strong></div>
+      <div className="whatif-row">{Math.abs(gain) < 5
+        ? <><span>Как в прогнозе модели</span><strong>—</strong></>
+        : <><span>{gain > 0 ? 'Отыгрывает к прогнозу модели' : 'Теряет к прогнозу модели'}</span><strong>{formatDelay(Math.abs(gain)).replace(/^\+/, '')}</strong></>}</div>
       <span className="whatif-note">
         Модель ожидает ~{Math.round(modelSpeed)} км/ч; по плану успевает при {Math.round(speedToPlanKmh)} км/ч.
         До остановки ~{(distM / 1000).toFixed(1)} км по маршруту; стоянки на промежуточных остановках не учтены.
