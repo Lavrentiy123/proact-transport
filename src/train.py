@@ -9,12 +9,14 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostRegressor
 from feature_engineering import build_features
+from submission_journal import save_submission
+from validate_submission import validate
 
 def main():
     print("=== 1. Loading raw data ===")
-    train_labels = pd.read_csv("data/labels/labels_train.csv")
-    test_labels = pd.read_csv("data/labels/labels_test.csv")
-    val_points = pd.read_csv("data/validate/points.csv")
+    train_labels = pd.read_csv("data/labels/labels_train.csv", dtype={"sample_id": str})
+    test_labels = pd.read_csv("data/labels/labels_test.csv", dtype={"sample_id": str})
+    val_points = pd.read_csv("data/validate/points.csv", dtype={"sample_id": str})
     
     train_traffic = pd.read_csv("data/train/traffic.csv", low_memory=False)
     train_sched = pd.read_csv("data/train/schedule.csv", low_memory=False)
@@ -69,28 +71,30 @@ def main():
         'speed_ratio',
     ]
     
-    X_train = df_train_feat[feature_cols].fillna(0)
+    X_train = df_train_feat[feature_cols]  # NaN остаются NaN: CatBoost обрабатывает их сам
     y_train = (df_train_feat['target_delay_s'] - df_train_feat['cur_dev_s']).values
     
-    X_test = df_test_feat[feature_cols].fillna(0)
+    X_test = df_test_feat[feature_cols]  # NaN остаются NaN: CatBoost обрабатывает их сам
     y_test = (df_test_feat['target_delay_s'] - df_test_feat['cur_dev_s']).values
     
-    X_val = df_val_feat[feature_cols].fillna(0)
+    X_val = df_val_feat[feature_cols]  # NaN остаются NaN: CatBoost обрабатывает их сам
     
     print(f"\nFeature matrix shapes: X_train {X_train.shape}, X_test {X_test.shape}, X_val {X_val.shape}")
     
     print("=== 3. Training CatBoostRegressor ===")
+    # Параметры фиксированные: без early stopping и без подбора по test/validate.
+    # Test используется только для печати MAE после обучения.
     cb = CatBoostRegressor(
         iterations=700,
         learning_rate=0.03,
         depth=6,
         loss_function='MAE',
-        eval_metric='MAE',
         random_seed=42,
-        verbose=100
+        verbose=0,
+        allow_writing_files=False,
     )
     
-    cb.fit(X_train, y_train, eval_set=(X_test, y_test), early_stopping_rounds=50)
+    cb.fit(X_train, y_train)
     
     # Save model
     os.makedirs("models", exist_ok=True)
@@ -120,40 +124,16 @@ def main():
     pred_delta_val = cb.predict(X_val)
     pred_val = df_val_feat['cur_dev_s'].values + pred_delta_val
     
-    # Local ground truth check for validate
-    test_sched['time_begin_dt'] = pd.to_datetime(test_sched['time_begin'])
-    test_sched['time_fact_begin_dt'] = pd.to_datetime(test_sched['time_fact_begin'])
-    test_sched['exact_delay_s'] = (test_sched['time_fact_begin_dt'] - test_sched['time_begin_dt']).dt.total_seconds()
-    
-    val_merged = df_val_feat.merge(
-        test_sched[['tt_action_item_id', 'exact_delay_s']],
-        left_on='target_stop_id',
-        right_on='tt_action_item_id',
-        how='left'
-    )
-    
-    if val_merged['exact_delay_s'].notnull().all():
-        fact_val = val_merged['exact_delay_s'].values
-        mae_zero_val = np.mean(np.abs(fact_val))
-        mae_base_val = np.mean(np.abs(fact_val - df_val_feat['cur_dev_s'].values))
-        mae_cb_val = np.mean(np.abs(fact_val - pred_val))
-        
-        print(f"Validate MAE (Zero baseline): {mae_zero_val:.2f} s")
-        print(f"Validate MAE (cur_dev_s baseline): {mae_base_val:.2f} s")
-        print(f"Validate MAE (CatBoost model): {mae_cb_val:.2f} s")
-        print(f"Validate improvement: {mae_base_val - mae_cb_val:.2f} s ({(mae_base_val - mae_cb_val)/mae_base_val:.1%})")
-    
     # Save submission file
     submission = pd.DataFrame({
         'sample_id': df_val_feat['sample_id'],
         'prediction': np.round(pred_val, 1)
     })
     
-    sub_path = "submission_catboost.csv"
-    submission.to_csv(sub_path, sep=';', index=False)
-    print(f"\nSaved submission to {sub_path} with {len(submission)} rows.")
-    print("Head of submission:")
-    print(submission.head(5))
+    sub_path = save_submission(submission, tag="baseline_v1", model="catboost_delta_legacy28",
+                               features_version="legacy28", test_mae=mae_cb_test)
+    errors = validate(sub_path)
+    print(f"\nSaved submission to {sub_path} with {len(submission)} rows; validator: {errors or 'OK'}")
 
 if __name__ == '__main__':
     main()
