@@ -30,7 +30,7 @@ def sample_points(test_data):
 def test_feature_names_fixed():
     assert len(FEATURE_NAMES) == 34
     assert len(set(FEATURE_NAMES)) == 34
-    assert FEATURES_VERSION == "v1"
+    assert FEATURES_VERSION == "v2"
 
 
 def test_build_features_keys(test_data):

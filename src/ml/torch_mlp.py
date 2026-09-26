@@ -33,7 +33,7 @@ os.chdir(ROOT)
 from ml_core.inference import (base_of, calibrate_interval_scale, mlp_fit_prep, mlp_transform,  # noqa: E402
                                order_quantiles, to_delay)
 from src.ml.cv import add_bus, lobo_folds, real_buses  # noqa: E402
-from src.ml.dataset import load_points, load_pool  # noqa: E402
+from src.ml.dataset import features_hash, load_points, load_pool  # noqa: E402
 from src.submission_journal import git_hash_short  # noqa: E402
 
 EPOCHS, BATCH, LR, WD = 60, 256, 1e-3, 1e-4
@@ -126,7 +126,7 @@ def main() -> None:
     d_cat = oof_cat_delay - base
 
     oof_path = ROOT / "cache" / "t3" / f"oof_mlp_{bm}.npz"
-    key = json.dumps([feats, bm, EPOCHS, BATCH, LR, WD, SEEDS, TARGET_SCALE, len(pr)])
+    key = json.dumps([feats, bm, EPOCHS, BATCH, LR, WD, SEEDS, TARGET_SCALE, len(pr), features_hash()])
     d_mlp = None
     if oof_path.exists():
         d = np.load(oof_path, allow_pickle=True)

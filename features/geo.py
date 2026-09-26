@@ -33,6 +33,20 @@ def haversine_scalar_m(lon1: float, lat1: float, lon2: float, lat2: float) -> fl
     return 2.0 * R_EARTH_M * math.asin(math.sqrt(min(max(a, 0.0), 1.0)))
 
 
+def bearing_deg(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    """Азимут из первой точки на вторую, градусы ``[0, 360)`` (0 — север, 90 — восток)."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    x = math.sin(dl) * math.cos(p2)
+    y = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return (math.degrees(math.atan2(x, y)) + 360.0) % 360.0
+
+
+def angle_diff_deg(a: float, b: float) -> float:
+    """Наименьший угол между двумя азимутами, градусы ``[0, 180]``."""
+    return abs((a - b + 180.0) % 360.0 - 180.0)
+
+
 def parse_point(s: str) -> tuple[float, float]:
     """Разбирает строку ``"POINT (lon lat)"``.
 

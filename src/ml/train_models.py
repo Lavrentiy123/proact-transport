@@ -33,7 +33,7 @@ from ml_core.inference import (CAUSE_GROUPS, base_of, calibrate_interval_scale, 
                                order_quantiles, to_delay)
 from src.ml.cv import add_bus, check_mapping, fwd_split, lobo_folds, official_split, real_buses  # noqa: E402
 from src.ml.dataset import (M_DS_FEATURES, M_DS_NOTOD_FEATURES, M_ONLINE_FEATURES, M_SCHED_FEATURES,  # noqa: E402
-                            load_points, load_pool)
+                            features_hash, load_points, load_pool)
 from src.submission_journal import git_hash_short  # noqa: E402
 
 CB_PARAMS = dict(learning_rate=0.04, depth=6, l2_leaf_reg=5, loss_function="MAE", verbose=0,
@@ -70,7 +70,8 @@ def lobo_oof(name: str, pool: pd.DataFrame, feats: list[str], base_mode: str, it
     """
     T3_CACHE.mkdir(parents=True, exist_ok=True)
     path = T3_CACHE / f"oof_{name}.npz"
-    key = json.dumps([feats, base_mode, iters, loss, CB_PARAMS, len(pool)], sort_keys=True)
+    # хеш признаков в ключе: поменяли features/ (детектор) — OOF пересчитываются, а не берутся старые
+    key = json.dumps([feats, base_mode, iters, loss, CB_PARAMS, len(pool), features_hash()], sort_keys=True)
     if path.exists():
         d = np.load(path, allow_pickle=True)
         if str(d["key"]) == key:
