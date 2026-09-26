@@ -22,12 +22,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 
+from features import FEATURES_VERSION  # noqa: E402
 from ml_core.inference import to_delay  # noqa: E402
 from src.ml.dataset import load_features  # noqa: E402
 from src.submission_journal import save_submission  # noqa: E402
 from src.validate_submission import validate  # noqa: E402
 
-TAGS = {"m_ds": "mds_v1", "m_ds_notod": "mds_notod_v1", "m_ds_tod": "mds_tod_v1", "m_ds_3seeds": "mds_3seeds_v1"}
+# суффикс файла — версия признаков: sub_…_mds_v2.csv построен на детекторе v2
+TAGS = {m: f"{t}_{FEATURES_VERSION}" for m, t in
+        {"m_ds": "mds", "m_ds_notod": "mds_notod", "m_ds_tod": "mds_tod", "m_ds_3seeds": "mds_3seeds"}.items()}
 
 
 def predict_validate(name: str) -> pd.DataFrame:
@@ -52,7 +55,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     sub = predict_validate(args.model)
     test_mae, lobo_mae = _metrics(args.model)
-    path = save_submission(sub, TAGS[args.model], args.model, "v1", test_mae, lobo_mae)
+    path = save_submission(sub, TAGS[args.model], args.model, FEATURES_VERSION, test_mae, lobo_mae)
     errors = validate(path)
     print(f"{path.relative_to(ROOT).as_posix()}: {'OK' if not errors else errors}")
     return 1 if errors else 0

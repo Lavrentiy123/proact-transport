@@ -121,6 +121,10 @@ def render(card: dict, cfg: dict) -> str:
               f"{fmt(o300['online_mae_model_s'])} | — |",
               f"| Онлайн-replay дня test, тик 60 с (в выборке) | {fmt(o60['online_mae_baseline_s'])} (восст.) | — | "
               f"{fmt(o60['online_mae_model_s'])} | — |"]
+    so = card.get("stream_submission", {}).get("official_mae", {})
+    if so:
+        L += [f"| Official, признаки потока: CatBoost / ансамбль | — | — | {fmt(so['cat'])} / {fmt(so['blend'])} | "
+              f"{fmt(so['sched'])} |"]
     L += [
         "",
         f"Абляция времени суток (m_ds): LOBO с TOD {fmt(ds['lobo_mae'])} / без {fmt(ds['lobo_mae_notod'])}; official с TOD "
@@ -130,6 +134,18 @@ def render(card: dict, cfg: dict) -> str:
         f"калибровки ширины ×{on.get('interval_scale', 1.0)} по OOF — в "
         f"{100 * on.get('interval_q10_q90_coverage_lobo_calibrated', on['interval_q10_q90_coverage_lobo']):.0f} % "
         f"(медианная ширина {fmt(on.get('interval_width_median_calibrated_s', on['interval_width_median_s']), 0)} с).",
+    ]
+    if so:
+        sc_est = card["stream_submission"]["score_est"]
+        L += [
+            "",
+            "**Сабмит из потока** (`src/ml/stream_submission.py`): validate-день через `OnlineVehicle` в порядке прихода "
+            "пакетов на сервер, отклонение — восстановленное детектором, прогноз — код ml-core. На official split "
+            f"(тот же день и те же борта, как validate) CatBoost потока {fmt(so['cat'])} с (оценка скора "
+            f"{sc_est['cat']:.2f}), ансамбль {fmt(so['blend'])} с ({sc_est['blend']:.2f}): веса ансамбля выбраны по LOBO "
+            "под незнакомые борта. Живой backend — ансамбль, сабмит из потока — оба варианта.",
+        ]
+    L += [
         "",
         "## Горизонт и латентность",
         "",
@@ -149,7 +165,9 @@ def render(card: dict, cfg: dict) -> str:
         "- Нет `route_id`/`trip_id`: «первый/последний рейс» определяется эвристикой по времени, рейсы — по плановому расписанию.",
         "- Восстановленное детектором отклонение шумнее официальной подсказки (LOBO бейзлайна "
         f"{fmt(b['lobo_cur_dev_reconstructed'])} против {fmt(b['lobo_cur_dev_official'])} с) — поэтому онлайн-модель "
-        "учится на восстановленном отклонении, а не на официальном.",
+        "учится на восстановленном отклонении, а не на официальном. Детектор v2 (окно −6 мин, отправление на "
+        "конечных, проверка направления) сократил этот разрыв: было 161.7 с. Остаток — в основном ручной ввод факта "
+        "(`manual_fill`, факт = план) и расхождение самой подсказки с фактом.",
         "- ДТП, перекрытия и погоду модель не видит: на этих данных их не обучить (так же сказал эксперт на QA-сессии).",
         "",
     ]
