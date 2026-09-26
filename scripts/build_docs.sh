@@ -14,4 +14,5 @@ with open("docs/api/backend/openapi.json", "w", encoding="utf-8") as f:
     json.dump(spec, f, ensure_ascii=False, indent=1)
 print("openapi paths:", len(spec["paths"]))
 EOF
+"$PY" scripts/sanitize_docs.py docs/api/backend   # без локального пути сборщика в значениях по умолчанию
 echo "pdoc: docs/api/backend/index.html"

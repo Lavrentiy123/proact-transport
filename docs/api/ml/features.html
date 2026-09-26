@@ -348,20 +348,26 @@ features    </h1>
 
             <div class="docstring"><p>Признаки одной точки прогноза.</p>
 
-<p>Args:
-    track: телеметрия борта <code>DataFrame[t, lat, lon, speed, heading, valid]</code> (можно сырой
-        фрагмент <code>traffic.csv</code>). Строки с <code>t &gt; T</code> игнорируются — утечки нет, даже если их передали.
-    schedule: плановые остановки борта (DataFrame или <code><a href="#ScheduleArrays">features.io.ScheduleArrays</a></code>).
-    target_stop_id: целевая остановка.
-    target_time_plan: её плановое время.
-    T: момент прогноза.
-    cur_dev_s: официальная подсказка; <code>None</code> — восстановленная (как на потоке).
-    arrivals: <code>None</code> — детектор прогоняется по треку до <code>T</code> внутри;
-        <code><a href="#StopDetector">StopDetector</a></code> — берутся его прибытия с <code>t_det ≤ T</code>;
-        <code>dict[stop_id, t_arr]</code> — прибытия, которые вызывающий считает известными к <code>T</code>.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>dict</code> с ключами <code><a href="#FEATURE_NAMES">FEATURE_NAMES</a></code> (34 признака, порядок фиксирован).</p>
+<ul>
+<li><strong>track:</strong>  телеметрия борта <code>DataFrame[t, lat, lon, speed, heading, valid]</code> (можно сырой
+фрагмент <code>traffic.csv</code>). Строки с <code>t &gt; T</code> игнорируются — утечки нет, даже если их передали.</li>
+<li><strong>schedule:</strong>  плановые остановки борта (DataFrame или <code><a href="#ScheduleArrays">features.io.ScheduleArrays</a></code>).</li>
+<li><strong>target_stop_id:</strong>  целевая остановка.</li>
+<li><strong>target_time_plan:</strong>  её плановое время.</li>
+<li><strong>T:</strong>  момент прогноза.</li>
+<li><strong>cur_dev_s:</strong>  официальная подсказка; <code>None</code> — восстановленная (как на потоке).</li>
+<li><strong>arrivals:</strong>  <code>None</code> — детектор прогоняется по треку до <code>T</code> внутри;
+<code><a href="#StopDetector">StopDetector</a></code> — берутся его прибытия с <code>t_det ≤ T</code>;
+<code>dict[stop_id, t_arr]</code> — прибытия, которые вызывающий считает известными к <code>T</code>.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>dict</code> с ключами <code><a href="#FEATURE_NAMES">FEATURE_NAMES</a></code> (34 признака, порядок фиксирован).</p>
+</blockquote>
 </div>
 
 
@@ -452,17 +458,23 @@ features    </h1>
 <code>t_det ≤ T</code> и фиксы <code>(T − 30 мин, T]</code> через <code>np.searchsorted</code>. Расчёт — та же
 <code><a href="#features_from_arrays">features_from_arrays()</a></code>, что и в <code><a href="#build_features">build_features()</a></code> и <code><a href="#OnlineVehicle">OnlineVehicle</a></code>.</p>
 
-<p>Args:
-    points_df: <code>sample_id, tr_id, T, target_stop_id, target_time_begin, cur_dev_s</code>
-        (+ <code>target_delay_s</code>).
-    traffic_df: телеметрия (из <code><a href="#load_traffic">features.load_traffic()</a></code> или сырая).
-    schedule_df: плановое расписание (из <code><a href="#load_schedule">features.load_schedule()</a></code> или сырое).
-    cur_dev_source: <code>"official"</code> — подсказка из <code>points_df</code>; <code>"reconstructed"</code> —
-        восстановленная детектором (как на потоке).</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    DataFrame: <code>sample_id, tr_id, T</code> + <code><a href="#FEATURE_NAMES">FEATURE_NAMES</a></code> (+ <code>target_delay_s</code>),
-    строки в порядке <code>points_df</code>.</p>
+<ul>
+<li><strong>points_df:</strong>  <code>sample_id, tr_id, T, target_stop_id, target_time_begin, cur_dev_s</code>
+(+ <code>target_delay_s</code>).</li>
+<li><strong>traffic_df:</strong>  телеметрия (из <code><a href="#load_traffic">features.load_traffic()</a></code> или сырая).</li>
+<li><strong>schedule_df:</strong>  плановое расписание (из <code><a href="#load_schedule">features.load_schedule()</a></code> или сырое).</li>
+<li><strong>cur_dev_source:</strong>  <code>"official"</code> — подсказка из <code>points_df</code>; <code>"reconstructed"</code> —
+восстановленная детектором (как на потоке).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>DataFrame: <code>sample_id, tr_id, T</code> + <code><a href="#FEATURE_NAMES">FEATURE_NAMES</a></code> (+ <code>target_delay_s</code>),
+  строки в порядке <code>points_df</code>.</p>
+</blockquote>
 </div>
 
 
@@ -580,20 +592,26 @@ features    </h1>
 
             <div class="docstring"><p>Ядро расчёта признаков (общее для офлайна и онлайна).</p>
 
-<p>Args:
-    T: момент прогноза, секунды.
-    t, lat, lon, spd: валидные фиксы борта, по возрастанию <code>t</code>; используются только
-        <code>T − 30 мин &lt; t ≤ T</code>.
-    sched: плановое расписание борта.
-    target_idx: позиция целевой остановки в <code>sched</code> (<code>None</code> — неизвестна).
-    target_plan_s: плановое время целевой остановки, секунды.
-    arr_idx, arr_t: прибытия, известные к <code>T</code> (позиции в <code>sched</code> и времена), в порядке обнаружения.
-    cur_dev_s: официальная подсказка; <code>None</code> — восстановить (<code>rdev_last</code>, затем
-        <code>plan_stop_nearest_dev_s</code>, иначе NaN).
-    inzone: заранее посчитанные флаги зоны посадки для <code>t</code> (иначе считаются здесь).</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>dict</code> ровно с ключами <code><a href="#FEATURE_NAMES">FEATURE_NAMES</a></code> в их порядке.</p>
+<ul>
+<li><strong>T:</strong>  момент прогноза, секунды.</li>
+<li><strong>t, lat, lon, spd:</strong>  валидные фиксы борта, по возрастанию <code>t</code>; используются только
+<code>T − 30 мин &lt; t ≤ T</code>.</li>
+<li><strong>sched:</strong>  плановое расписание борта.</li>
+<li><strong>target_idx:</strong>  позиция целевой остановки в <code>sched</code> (<code>None</code> — неизвестна).</li>
+<li><strong>target_plan_s:</strong>  плановое время целевой остановки, секунды.</li>
+<li><strong>arr_idx, arr_t:</strong>  прибытия, известные к <code>T</code> (позиции в <code>sched</code> и времена), в порядке обнаружения.</li>
+<li><strong>cur_dev_s:</strong>  официальная подсказка; <code>None</code> — восстановить (<code>rdev_last</code>, затем
+<code>plan_stop_nearest_dev_s</code>, иначе NaN).</li>
+<li><strong>inzone:</strong>  заранее посчитанные флаги зоны посадки для <code>t</code> (иначе считаются здесь).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>dict</code> ровно с ключами <code><a href="#FEATURE_NAMES">FEATURE_NAMES</a></code> в их порядке.</p>
+</blockquote>
 </div>
 
 
@@ -761,13 +779,19 @@ features    </h1>
 
             <div class="docstring"><p>Детектор прибытий одного борта с монотонным указателем.</p>
 
-<p>Args:
-    schedule_rows: плановые остановки борта (DataFrame из <code><a href="#load_schedule">features.load_schedule()</a></code>,
-        сырой фрагмент <code>schedule.csv</code> или <code><a href="#ScheduleArrays">features.io.ScheduleArrays</a></code>).</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Attributes:
-    sched: расписание в виде массивов.
-    i: текущий указатель (первая ещё не пройденная остановка).</p>
+<ul>
+<li><strong>schedule_rows:</strong>  плановые остановки борта (DataFrame из <code><a href="#load_schedule">features.load_schedule()</a></code>,
+сырой фрагмент <code>schedule.csv</code> или <code><a href="#ScheduleArrays">features.io.ScheduleArrays</a></code>).</li>
+</ul>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>sched:</strong>  расписание в виде массивов.</li>
+<li><strong>i:</strong>  текущий указатель (первая ещё не пройденная остановка).</li>
+</ul>
 </div>
 
 
@@ -852,13 +876,19 @@ features    </h1>
 
             <div class="docstring"><p>Обрабатывает один валидный фикс (фиксы подаются по возрастанию времени).</p>
 
-<p>Args:
-    t: время фикса (секунды или datetime).
-    lat, lon: координаты.
-    speed: скорость, км/ч (правилами детектора не используется, оставлена для API).</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Список новых прибытий <code>[(stop_id, t_arr)]</code> (0 или 1 элемент).</p>
+<ul>
+<li><strong>t:</strong>  время фикса (секунды или datetime).</li>
+<li><strong>lat, lon:</strong>  координаты.</li>
+<li><strong>speed:</strong>  скорость, км/ч (правилами детектора не используется, оставлена для API).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Список новых прибытий <code>[(stop_id, t_arr)]</code> (0 или 1 элемент).</p>
+</blockquote>
 </div>
 
 
@@ -934,8 +964,11 @@ features    </h1>
 
             <div class="docstring"><p>Прибытия, известные к моменту <code>T</code> (<code>t_det ≤ T</code>; <code>None</code> — все).</p>
 
-<p>Returns:
-    <code>(idx, t_arr)</code> — позиции остановок в расписании и времена прибытия (секунды).</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>(idx, t_arr)</code> — позиции остановок в расписании и времена прибытия (секунды).</p>
+</blockquote>
 </div>
 
 
@@ -1305,9 +1338,12 @@ features    </h1>
 старше буфера, встаёт на своё место, а детектор перепроигрывается с этого места — результат
 тот же, что при подаче по времени (и что офлайн в <code><a href="#build_features_batch">features.build_features_batch()</a></code>).</p>
 
-<p>Args:
-    schedule_rows: плановые остановки борта (фрагмент <code><a href="#load_schedule">features.load_schedule()</a></code>).
-    tr_id: номер борта (для логов и ответов).</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>schedule_rows:</strong>  плановые остановки борта (фрагмент <code><a href="#load_schedule">features.load_schedule()</a></code>).</li>
+<li><strong>tr_id:</strong>  номер борта (для логов и ответов).</li>
+</ul>
 </div>
 
 
@@ -1446,15 +1482,21 @@ features    </h1>
 
             <div class="docstring"><p>Принимает один пакет телеметрии.</p>
 
-<p>Args:
-    t: время фикса (datetime / ISO-строка / секунды).
-    lat, lon: координаты.
-    speed: скорость, км/ч.
-    heading: курс, градусы.
-    valid: валидность координат; невалидный фикс обновляет только <code>last_seen</code>.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Новые прибытия на остановки <code>[(stop_id, t_arr)]</code>.</p>
+<ul>
+<li><strong>t:</strong>  время фикса (datetime / ISO-строка / секунды).</li>
+<li><strong>lat, lon:</strong>  координаты.</li>
+<li><strong>speed:</strong>  скорость, км/ч.</li>
+<li><strong>heading:</strong>  курс, градусы.</li>
+<li><strong>valid:</strong>  валидность координат; невалидный фикс обновляет только <code>last_seen</code>.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Новые прибытия на остановки <code>[(stop_id, t_arr)]</code>.</p>
+</blockquote>
 </div>
 
 
@@ -1487,8 +1529,11 @@ features    </h1>
 
             <div class="docstring"><p>Первая плановая остановка с <code>time_plan ∈ (T + 10 мин, T + 15 мин]</code>.</p>
 
-<p>Returns:
-    <code>(stop_id, time_plan)</code> или <code>None</code> — тогда прогноз не строится (критерий 2).</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>(stop_id, time_plan)</code> или <code>None</code> — тогда прогноз не строится (критерий 2).</p>
+</blockquote>
 </div>
 
 
@@ -1527,12 +1572,18 @@ features    </h1>
 
             <div class="docstring"><p>Признаки для прогноза в момент <code>T</code> (<code>cur_dev_s</code> — восстановленное детектором).</p>
 
-<p>Args:
-    T: момент прогноза (обычно время симуляции).
-    target: <code>(stop_id, time_plan)</code>; по умолчанию <code><a href="#OnlineVehicle.target_at">target_at()</a></code>.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>dict</code> <code><a href="#FEATURE_NAMES">features.FEATURE_NAMES</a></code> или <code>None</code>, если в окне 10–15 мин нет остановки.</p>
+<ul>
+<li><strong>T:</strong>  момент прогноза (обычно время симуляции).</li>
+<li><strong>target:</strong>  <code>(stop_id, time_plan)</code>; по умолчанию <code><a href="#OnlineVehicle.target_at">target_at()</a></code>.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>dict</code> <code><a href="#FEATURE_NAMES">features.FEATURE_NAMES</a></code> или <code>None</code>, если в окне 10–15 мин нет остановки.</p>
+</blockquote>
 </div>
 
 
@@ -1580,10 +1631,13 @@ features    </h1>
 
             <div class="docstring"><p>Признаки состояния для <code>VehicleState</code> (критерий 3).</p>
 
-<p>Returns:
-    <code>{"cur_dev_s", "seg_speed_kmh", "dwell_s"}</code>: отклонение на последней пройденной
-    остановке; средняя скорость с последнего прибытия; длительность текущей стоянки.
-    <code>None</code> — нет данных.</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>{"cur_dev_s", "seg_speed_kmh", "dwell_s"}</code>: отклонение на последней пройденной
+  остановке; средняя скорость с последнего прибытия; длительность текущей стоянки.
+  <code>None</code> — нет данных.</p>
+</blockquote>
 </div>
 
 
@@ -1713,12 +1767,18 @@ features    </h1>
 
             <div class="docstring"><p>Читает плановое расписание (без фактов прибытия).</p>
 
-<p>Args:
-    src: путь к <code>schedule.csv</code> / <code>schedule_plan.csv</code> или DataFrame.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    DataFrame <code>tr_id, stop_id, time_plan, lat, lon, name</code>, отсортированный по
-    <code>(tr_id, time_plan, stop_id)</code>; <code>time_plan</code> — <code>datetime64[ns]</code>.</p>
+<ul>
+<li><strong>src:</strong>  путь к <code>schedule.csv</code> / <code>schedule_plan.csv</code> или DataFrame.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>DataFrame <code>tr_id, stop_id, time_plan, lat, lon, name</code>, отсортированный по
+  <code>(tr_id, time_plan, stop_id)</code>; <code>time_plan</code> — <code>datetime64[ns]</code>.</p>
+</blockquote>
 </div>
 
 
@@ -1775,12 +1835,18 @@ features    </h1>
 валидный фикс, затем первый по файлу), <code>valid = location_valid &amp; lat/lon не NaN</code>.
 Пакеты <code>is_hist_data</code> просто встают на своё место по времени.</p>
 
-<p>Args:
-    src: путь к <code>traffic.csv</code> или уже прочитанный DataFrame (сырой или нормализованный).</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    DataFrame с колонками <code>tr_id, t, lat, lon, speed, heading, valid, unit_id</code>,
-    где <code>t</code> — <code>datetime64[ns]</code>.</p>
+<ul>
+<li><strong>src:</strong>  путь к <code>traffic.csv</code> или уже прочитанный DataFrame (сырой или нормализованный).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>DataFrame с колонками <code>tr_id, t, lat, lon, speed, heading, valid, unit_id</code>,
+  где <code>t</code> — <code>datetime64[ns]</code>.</p>
+</blockquote>
 </div>
 
 
@@ -1841,14 +1907,17 @@ features    </h1>
 
 <p>Остановки отсортированы по <code>(time_plan, stop_id)</code>.</p>
 
-<p>Attributes:
-    stop_id: id остановок (<code>tt_action_item_id</code>).
-    plan_s: плановое время, float-секунды.
-    lat, lon: координаты остановок.
-    name: названия (адреса) остановок.
-    chain_cum_m: накопленная длина цепочки плановых остановок, <code>chain_cum_m[k]</code> — от 0-й до k-й.
-    zone_lat, zone_lon: уникальные координаты остановок (зоны посадки).
-    index_of: <code>stop_id -&gt; позиция</code> в отсортированном расписании.</p>
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>stop_id:</strong>  id остановок (<code>tt_action_item_id</code>).</li>
+<li><strong>plan_s:</strong>  плановое время, float-секунды.</li>
+<li><strong>lat, lon:</strong>  координаты остановок.</li>
+<li><strong>name:</strong>  названия (адреса) остановок.</li>
+<li><strong>chain_cum_m:</strong>  накопленная длина цепочки плановых остановок, <code>chain_cum_m[k]</code> — от 0-й до k-й.</li>
+<li><strong>zone_lat, zone_lon:</strong>  уникальные координаты остановок (зоны посадки).</li>
+<li><strong>index_of:</strong>  <code>stop_id -&gt; позиция</code> в отсортированном расписании.</li>
+</ul>
 </div>
 
 
@@ -2017,12 +2086,18 @@ features    </h1>
 
             <div class="docstring"><p>Расстояние по большому кругу в метрах, векторно (numpy broadcasting).</p>
 
-<p>Args:
-    lon1, lat1: долгота и широта первой точки (градусы), скаляры или массивы.
-    lon2, lat2: долгота и широта второй точки (градусы).</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>np.ndarray</code> (или скаляр <code>np.float64</code>) расстояний в метрах, R = 6 371 000 м.</p>
+<ul>
+<li><strong>lon1, lat1:</strong>  долгота и широта первой точки (градусы), скаляры или массивы.</li>
+<li><strong>lon2, lat2:</strong>  долгота и широта второй точки (градусы).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>np.ndarray</code> (или скаляр <code>np.float64</code>) расстояний в метрах, R = 6 371 000 м.</p>
+</blockquote>
 </div>
 
 
@@ -2053,8 +2128,11 @@ features    </h1>
 
             <div class="docstring"><p>Разбирает строку <code>"POINT (lon lat)"</code>.</p>
 
-<p>Returns:
-    <code>(lon, lat)</code>; <code>(nan, nan)</code>, если строка не разобрана.</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>(lon, lat)</code>; <code>(nan, nan)</code>, если строка не разобрана.</p>
+</blockquote>
 </div>
 
 
@@ -2091,12 +2169,18 @@ features    </h1>
 
             <div class="docstring"><p>Переводит момент времени в float-секунды (наивное время датасета как UTC).</p>
 
-<p>Args:
-    x: число (уже секунды), <code>str</code>, <code>datetime</code>, <code>pd.Timestamp</code> или <code>np.datetime64</code>.
-        Время с таймзоной переводится в Москву и лишается таймзоны.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Секунды от 1970-01-01 в виде <code>float</code>.</p>
+<ul>
+<li><strong>x:</strong>  число (уже секунды), <code>str</code>, <code>datetime</code>, <code>pd.Timestamp</code> или <code>np.datetime64</code>.
+Время с таймзоной переводится в Москву и лишается таймзоны.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Секунды от 1970-01-01 в виде <code>float</code>.</p>
+</blockquote>
 </div>
 
 

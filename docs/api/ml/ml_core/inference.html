@@ -181,7 +181,7 @@
 </span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a><span class="sd">        ``(X, n_extra)`` — матрица и число лишних (неизвестных модели) признаков во входе.</span>
 </span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a><span class="sd">    """</span>
 </span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a>    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a>    <span class="n">known</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a>    <span class="n">known</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">FEATURE_NAMES</span><span class="p">)</span>  <span class="c1"># признаки пакета, которые модель не использует, — не «лишние»</span>
 </span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a>    <span class="n">n_extra</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
 </span><span id="L-58"><a href="#L-58"><span class="linenos"> 58</span></a>        <span class="n">r</span> <span class="o">=</span> <span class="n">add_derived</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
@@ -511,7 +511,7 @@
 </span><span id="rows_to_matrix-53"><a href="#rows_to_matrix-53"><span class="linenos">53</span></a><span class="sd">        ``(X, n_extra)`` — матрица и число лишних (неизвестных модели) признаков во входе.</span>
 </span><span id="rows_to_matrix-54"><a href="#rows_to_matrix-54"><span class="linenos">54</span></a><span class="sd">    """</span>
 </span><span id="rows_to_matrix-55"><a href="#rows_to_matrix-55"><span class="linenos">55</span></a>    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-</span><span id="rows_to_matrix-56"><a href="#rows_to_matrix-56"><span class="linenos">56</span></a>    <span class="n">known</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+</span><span id="rows_to_matrix-56"><a href="#rows_to_matrix-56"><span class="linenos">56</span></a>    <span class="n">known</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">FEATURE_NAMES</span><span class="p">)</span>  <span class="c1"># признаки пакета, которые модель не использует, — не «лишние»</span>
 </span><span id="rows_to_matrix-57"><a href="#rows_to_matrix-57"><span class="linenos">57</span></a>    <span class="n">n_extra</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span id="rows_to_matrix-58"><a href="#rows_to_matrix-58"><span class="linenos">58</span></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
 </span><span id="rows_to_matrix-59"><a href="#rows_to_matrix-59"><span class="linenos">59</span></a>        <span class="n">r</span> <span class="o">=</span> <span class="n">add_derived</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
@@ -526,8 +526,11 @@
 
             <div class="docstring"><p>Словари признаков → матрица <code>N × F</code> (отсутствующий или <code>None</code> → NaN).</p>
 
-<p>Returns:
-    <code>(X, n_extra)</code> — матрица и число лишних (неизвестных модели) признаков во входе.</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>(X, n_extra)</code> — матрица и число лишних (неизвестных модели) признаков во входе.</p>
+</blockquote>
 </div>
 
 
@@ -561,11 +564,14 @@
 
             <div class="docstring"><p>База, от которой модель предсказывает остаток.</p>
 
-<p>Args:
-    cur_dev_s: подсказка (официальная или восстановленная).
-    base_mode: <code>"cur_dev"</code> — <code>cur_dev_s</code>, а где его нет — 0 (признак <code>cur_dev_s</code> при этом
-        остаётся NaN); <code>"zero"</code> — 0 (модель предсказывает задержку целиком; выбирается по LOBO,
-        когда восстановленная подсказка слишком шумная).</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>cur_dev_s:</strong>  подсказка (официальная или восстановленная).</li>
+<li><strong>base_mode:</strong>  <code>"cur_dev"</code> — <code>cur_dev_s</code>, а где его нет — 0 (признак <code>cur_dev_s</code> при этом
+остаётся NaN); <code>"zero"</code> — 0 (модель предсказывает задержку целиком; выбирается по LOBO,
+когда восстановленная подсказка слишком шумная).</li>
+</ul>
 </div>
 
 
@@ -619,9 +625,12 @@
 
             <div class="docstring"><p><code>q10 = min(q10, ŷ)</code>, <code>q90 = max(q90, ŷ)</code> — интервал всегда содержит прогноз.</p>
 
-<p>Args:
-    scale: калибровка ширины по LOBO (<code>feature_config.json → interval_scale</code>): расстояния
-        <code>ŷ − q10</code> и <code>q90 − ŷ</code> умножаются на <code>scale</code>, чтобы q10–q90 накрывал ~80 % фактов.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>scale:</strong>  калибровка ширины по LOBO (<code>feature_config.json → interval_scale</code>): расстояния
+<code>ŷ − q10</code> и <code>q90 − ŷ</code> умножаются на <code>scale</code>, чтобы q10–q90 накрывал ~80 % фактов.</li>
+</ul>
 </div>
 
 
@@ -776,17 +785,23 @@
 
             <div class="docstring"><p>Групповая окклюзия одним батчем <code>(G + 1) · N</code> строк.</p>
 
-<p>Args:
-    predict_delta: функция <code>X → Δ̂</code> (CatBoost, бленд и т. п.).
-    X: матрица признаков <code>N × F</code> в порядке <code>names</code>.
-    names: имена признаков модели.
-    norms: нормы признаков (<code><a href="#compute_norms">compute_norms()</a></code>).
-    base_mode: база остатка модели (<code><a href="#base_of">base_of()</a></code>).</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>(pred, contrib, groups)</code>: прогноз задержки <code>ŷ</code> (N), вклады <code>contrib</code> (G × N) и имена групп.
-    Для группы <code>accumulated</code> база <code>cur_dev_s</code> тоже берётся нормой («если бы накопленное
-    отставание было обычным»).</p>
+<ul>
+<li><strong>predict_delta:</strong>  функция <code>X → Δ̂</code> (CatBoost, бленд и т. п.).</li>
+<li><strong>X:</strong>  матрица признаков <code>N × F</code> в порядке <code>names</code>.</li>
+<li><strong>names:</strong>  имена признаков модели.</li>
+<li><strong>norms:</strong>  нормы признаков (<code><a href="#compute_norms">compute_norms()</a></code>).</li>
+<li><strong>base_mode:</strong>  база остатка модели (<code><a href="#base_of">base_of()</a></code>).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>(pred, contrib, groups)</code>: прогноз задержки <code>ŷ</code> (N), вклады <code>contrib</code> (G × N) и имена групп.
+  Для группы <code>accumulated</code> база <code>cur_dev_s</code> тоже берётся нормой («если бы накопленное
+  отставание было обычным»).</p>
+</blockquote>
 </div>
 
 
