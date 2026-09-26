@@ -13,7 +13,7 @@ services:
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/ready').status==200 else 1)"]
       interval: 5s
-      timeout: 3s
+      timeout: 10s   # запуск python в проверке под нагрузкой тика дольше 3 с (ML-T7a)
       retries: 24
       start_period: 10s
     restart: unless-stopped
@@ -40,7 +40,7 @@ services:
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/ready').status==200 else 1)"]
       interval: 5s
-      timeout: 3s
+      timeout: 10s   # на медленной/загруженной машине запуск python в проверке дольше 3 с (ML-T7a)
       retries: 20
       start_period: 10s
     restart: unless-stopped
@@ -58,20 +58,19 @@ services:
     healthcheck: {disable: true}   # HEALTHCHECK образа проверяет HTTP backend, у replay его нет
     restart: unless-stopped
 
-  # TODO (слияние с веткой Пуртова): раскомментировать, когда в этой ветке появится frontend/.
-  # Блок совпадает с frontend/Dockerfile из origin/codex/purtov-frontend: контекст ./frontend,
+  # Дашборд (ветка Пуртова, слита в main в ML-T7a): контекст ./frontend,
   # nginx слушает 3000 и проксирует /api и /ws на backend:8000.
-  # frontend:
-  #   build: ./frontend
-  #   image: proact-frontend:local
-  #   depends_on:
-  #     backend: {condition: service_healthy}
-  #   ports: ["${FRONTEND_PORT:-3000}:3000"]
-  #   healthcheck:
-  #     test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
-  #     interval: 5s
-  #     retries: 10
-  #   restart: unless-stopped
+  frontend:
+    build: ./frontend
+    image: proact-frontend:local
+    depends_on:
+      backend: {condition: service_healthy}
+    ports: ["${FRONTEND_PORT:-3000}:3000"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]   # localhost в alpine = ::1, nginx слушает IPv4
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
 
   # Официальный эмулятор NDTP организаторов (TCP-клиент: сам подключается к backend:9201).
   # Образ не собирается и не скачивается: docker load -i data/ndtp-telemetry-emulator.tar
