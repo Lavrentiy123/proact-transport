@@ -89,8 +89,9 @@ def cmd_load(minutes: float) -> None:
     async def ws():
         import websockets
         async with websockets.connect(URL.replace("http", "ws") + "/ws/live") as w:
+            sizes = [len(await w.recv())]          # первое сообщение приходит сразу после подключения
             t = time.perf_counter()
-            sizes = [len(await w.recv()) for _ in range(5)]
+            sizes += [len(await w.recv()) for _ in range(4)]
             return sizes, (time.perf_counter() - t) / 4
     sizes, period = asyncio.run(ws())
     out(metric="ws_snapshot_bytes", value=max(sizes), how="размер WsMessage, 5 сообщений")
@@ -113,7 +114,9 @@ def main() -> None:
     p.add_argument("--minutes", type=float, default=10)
     p.add_argument("--timeout", type=float, default=300)
     p.add_argument("--frames", type=int, default=100_000)
+    p.add_argument("--url", default=URL, help="адрес backend, если порт изменён в .env")
     a = p.parse_args()
+    globals()["URL"] = a.url.rstrip("/")
     {"cold": lambda: cmd_cold(a.timeout), "load": lambda: cmd_load(a.minutes), "codec": lambda: cmd_codec(a.frames)}[a.mode]()
 
 

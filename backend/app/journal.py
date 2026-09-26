@@ -27,7 +27,8 @@ class Journal:
     """Журнал прогнозов с инкрементальными метриками.
 
     Args:
-        max_rows: сколько строк хранить (старые вытесняются, метрики считаются по всем записанным).
+        max_rows: сколько строк хранить. Старые строки вытесняются; ``forecasts_total`` и доля горизонта считаются
+            по всем записанным, а сверка с прибытием возможна только для ещё хранимых строк.
     """
 
     def __init__(self, max_rows: int = 300_000):
@@ -94,12 +95,21 @@ class Journal:
 
     def to_csv(self) -> str:
         """Весь хранимый журнал в CSV (время — ISO, время датасета)."""
-        buf = io.StringIO()
-        w = csv.writer(buf, lineterminator="\n")
-        w.writerow(COLUMNS)
-        for r in self.rows:
-            out = list(r)
-            out[1] = from_epoch_s(r[1]).isoformat()
-            out[4] = from_epoch_s(r[4]).isoformat()
-            w.writerow(["" if v is None else (round(v, 2) if isinstance(v, float) else v) for v in out])
-        return buf.getvalue()
+        return self.snapshot_csv()()
+
+    def snapshot_csv(self):
+        """Копия строк сейчас (в event loop) → функция, которая соберёт CSV позже (например, в пуле потоков)."""
+        rows = [list(r) for r in self.rows]
+        return lambda: _rows_to_csv(rows)
+
+
+def _rows_to_csv(rows: list[list]) -> str:
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(COLUMNS)
+    for r in rows:
+        out = list(r)
+        out[1] = from_epoch_s(r[1]).isoformat()
+        out[4] = from_epoch_s(r[4]).isoformat()
+        w.writerow(["" if v is None else (round(v, 2) if isinstance(v, float) else v) for v in out])
+    return buf.getvalue()
