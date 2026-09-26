@@ -118,5 +118,11 @@
     "mae_s": 36.3,
     "n_stops": 15687,
     "source": "tests/ml/test_stop_detector.py"
+  },
+  "latency": {
+    "predict_30_ms_p50": 9.7,
+    "docker_cold_start_to_ready_s": 14,
+    "docker_image_mb": 1083,
+    "source": "tests/ml_core/test_api.py (TestClient, 30 строк), scripts/smoke_ml_core.sh"
   }
 }
