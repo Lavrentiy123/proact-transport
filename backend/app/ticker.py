@@ -47,6 +47,7 @@ class Ticker:
         self.last_source = "none"
         self.last_version = "none"
         self.last_rows = 0
+        self.audit: deque[dict] = deque(maxlen=1000)   # решения диспетчера
         self._task: asyncio.Task | None = None
 
     # ---------------- жизненный цикл ----------------
@@ -160,9 +161,45 @@ class Ticker:
         self.journal.add(T, v.tr_id, stop_id, plan_s, lead_s, r.delay_pred_s, r.delay_q10_s, r.delay_q90_s, r.p_late,
                          risk.value, quality.value, r.cause_code, feats.get("cur_dev_s"), r.model_version)
 
-    # ---------------- решения диспетчера (шаг 10) ----------------
+    # ---------------- решения диспетчера ----------------
     def act(self, req: ActionRequest) -> ActionResponse | None:
-        return None
+        """Решение диспетчера по алерту и сообщение водителю.
+
+        ``apply`` — рекомендация уходит водителю (канал NDTP «диспетчер ↔ водитель»; в демо —
+        ЭМУЛЯЦИЯ ответа по правилу :func:`driver_reply`), ``dismiss`` — алерт отклонён, водителю
+        ничего не отправляется. Алерт уходит из активных и не поднимается снова, пока борт не
+        «успокоится» (прогноз < 200 с два тика подряд). Решения пишутся в журнал аудита.
+        """
+        alert = self.book.find(req.alert_id)
+        if alert is None:
+            return None
+        status = "applied" if req.action == "apply" else "dismissed"
+        self.book.decide(req.alert_id, status)
+        if status == "applied":
+            rec = alert.recommendation
+            msg = f"Диспетчер: {rec.text}" if rec is not None else f"Диспетчер: {alert.title}. Сообщите обстановку."
+            reply = driver_reply(alert)
+        else:
+            msg, reply = "Сообщение водителю не отправлялось: алерт отклонён диспетчером", None
+        self.audit.append({"alert_id": req.alert_id, "tr_id": alert.tr_id, "action": req.action, "status": status,
+                           "comment": req.comment, "driver_message": msg, "driver_reply": reply,
+                           "sim_time": from_epoch_s(self.hub.clock.now_s()).isoformat()})
+        return ActionResponse(alert_id=req.alert_id, status=status, driver_message=msg, driver_reply=reply)
+
+
+def driver_reply(alert) -> str:
+    """ЭМУЛЯЦИЯ ответа водителя для демо (в продукте ответ приходит по NDTP от терминала).
+
+    Правило: причина ``low_data`` → «нештатная ситуация» (с бортом нет связи); рекомендация
+    ``speed_advice`` с реальной скоростью ≤ 35 км/ч → «успеваю»; иначе → «не успеваю».
+    """
+    fc = alert.forecast
+    if fc.cause.code == "low_data":
+        return "нештатная ситуация"
+    rec = alert.recommendation
+    if rec is not None and rec.action == "speed_advice" and rec.target_speed_kmh is not None             and rec.target_speed_kmh <= 35:
+        return "успеваю"
+    return "не успеваю"
 
 
 __all__ = ["Ticker", "FALLBACK_VERSION"]

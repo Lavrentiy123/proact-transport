@@ -127,6 +127,7 @@ class ReplayClient:
         self.dropped = 0
         self.reconnects = 0
         self.cursor = 0
+        self.ended = False
         self._stop = asyncio.Event()
 
     def stop(self) -> None:
@@ -220,10 +221,15 @@ class ReplayClient:
                         await self._flush()
                 await self._flush()
                 if self.cursor >= n:
-                    if not self.loop:
-                        log.info("replay reached end of data")
-                        break
-                    self.cursor = 0
+                    if self.loop:
+                        self.cursor = 0
+                    elif not self.ended:
+                        # конец дня: не выходим (иначе restart-политика compose гоняла бы контейнер по кругу),
+                        # ждём остановки или переноса часов назад (перемотка выше)
+                        log.info("replay reached end of data, idle")
+                        self.ended = True
+                elif self.ended:
+                    self.ended = False
                 await asyncio.sleep(self.tick_wall_s)
         finally:
             for u in list(self.writers):

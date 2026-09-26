@@ -43,8 +43,10 @@ class LiveHub(Hub):
         self.server = NdtpServer(self.on_frame, self.s.ndtp_host, self.s.ndtp_port, self.s.ndtp_idle_timeout_s)
         self.started_wall = time.time()
         self.forecasts: dict = {}          # tr_id -> Forecast (заполняет тик)
+        from .emulator import EmulatorCtl
         from .ticker import Ticker
         self.ticker = Ticker(self)
+        self.emulator = EmulatorCtl(self)
         self.dropped_out_of_window = 0
         self.replay = None                 # replay внутри процесса (REPLAY_INPROCESS=1)
         self._replay_task = None
@@ -59,6 +61,7 @@ class LiveHub(Hub):
         await self.server.start()
         if self.ticker is not None:
             await self.ticker.start()
+        await self.emulator.start()
         if self.s.replay_inprocess:
             import asyncio
 
@@ -72,6 +75,7 @@ class LiveHub(Hub):
             self.replay.stop()
             if self._replay_task is not None:
                 await self._replay_task
+        await self.emulator.stop()
         if self.ticker is not None:
             await self.ticker.stop()
         await self.server.stop()
@@ -122,7 +126,7 @@ class LiveHub(Hub):
             ndtp_nav_fixes_total=self.server.nav_fixes, ndtp_crc_errors_total=st.crc_errors,
             ndtp_garbage_bytes_total=st.garbage_bytes,
             unknown_units=len(self.fleet.unknown_units) if self.fleet else 0, predictor=predictor,
-            ndtp_dropped_out_of_window=self.dropped_out_of_window)
+            ndtp_dropped_out_of_window=self.dropped_out_of_window, emulator=self.emulator.state)
 
     def _vehicle_state(self, v: Tracked, now_s: float) -> VehicleState | None:
         if v.last_valid is None or v.last is None:
