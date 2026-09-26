@@ -1,11 +1,11 @@
 # Инструкция для жюри: ПроАкт.Транспорт
 
-Система из трёх модулей в Docker: **ml-core** (прогноз CatBoost, `:8001`), **backend** (приём NDTP `:9201`, тик прогнозов, алерты, REST и WebSocket `:8000`), **дашборд** (frontend `:3000`, ветка Пуртова). Дашборд пока живёт в ветке фронта `codex/purtov-frontend` (там же его `frontend/README.md`); в `docker-compose.yml` блок `frontend` подготовлен и включается после слияния веток. Поток телеметрии — бинарный NDTP: по умолчанию воспроизводится реальный день 06.01.2026 из датасета, по желанию — официальный эмулятор организаторов.
+Система из трёх модулей в Docker: **ml-core** (прогноз: CatBoost + PyTorch через ONNX, `:8001`), **backend** (приём NDTP `:9201`, тик прогнозов, алерты, REST и WebSocket `:8000`), **дашборд** (frontend `:3000`, nginx; описание — `frontend/README.md`). Все три модуля поднимаются одной командой из `docker-compose.yml`. Поток телеметрии — бинарный NDTP: по умолчанию воспроизводится реальный день 06.01.2026 из датасета, по желанию — официальный эмулятор организаторов.
 
 ## 1. Что нужно
 
 - Docker Desktop / Docker Engine с Compose v2 (`docker compose version`), 8 ГБ ОЗУ, 4 ГБ на диске под образы.
-- Свободные порты `8000`, `8001`, `9201` (и `18080` для эмулятора). Занят порт — скопируйте `.env.example` в `.env` и поменяйте `BACKEND_PORT` / `ML_CORE_PORT` / `NDTP_PORT`; тогда в адресах ниже подставляйте свой порт, а скриптам передавайте его явно: `bash scripts/chaos.sh 18000`, `python scripts/measure_perf.py load --url http://localhost:18000`.
+- Свободные порты `3000`, `8000`, `8001`, `9201` (и `18080` для эмулятора). Занят порт — скопируйте `.env.example` в `.env` и поменяйте `FRONTEND_PORT` / `BACKEND_PORT` / `ML_CORE_PORT` / `NDTP_PORT`; тогда в адресах ниже подставляйте свой порт, а скриптам передавайте его явно: `bash scripts/chaos.sh 18000`, `python scripts/measure_perf.py load --url http://localhost:18000`.
 - Интернет нужен только на сборку образов (зависимости `pip`). В рантайме ничего не скачивается: модели, расписание и телеметрия дня лежат внутри образов.
 
 ## 2. Запуск одной командой
@@ -26,6 +26,7 @@ curl http://localhost:8000/ready
 
 | Что | Адрес |
 |---|---|
+| **Дашборд диспетчера** (карта, цвет риска, лента алертов, карточка инцидента) | http://localhost:3000 |
 | Swagger backend (пробные запросы) | http://localhost:8000/docs |
 | Статус: режим LIVE/DEGRADED, время симуляции, сессии NDTP, ml-core | http://localhost:8000/api/v1/system/status |
 | Борта с прогнозом на 10–15 минут | http://localhost:8000/api/v1/vehicles |
@@ -35,6 +36,7 @@ curl http://localhost:8000/ready
 | Метрики Prometheus (пакеты, CRC, тик и инференс p50/p99) | http://localhost:8000/metrics |
 | Поток WebSocket для дашборда (1 раз в секунду) | `ws://localhost:8000/ws/live` |
 | Swagger ml-core | http://localhost:8001/docs |
+| Документация по коду ML (pdoc: пакеты `features` и `ml_core`) | `docs/api/ml/index.html` — открыть в браузере |
 | Документация по коду (pdoc: backend и пакет признаков features) | `docs/api/backend/index.html` — открыть в браузере (пересборка: `bash scripts/build_docs.sh`); OpenAPI без запуска — `docs/api/backend/openapi.json` |
 
 ## 4. Как подать поток
