@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from contracts.schemas import (ActionRequest, ActionResponse, Alert, HorizonMetrics, SystemStatus, TrackResponse,
                                VehicleState)
 
-from ..hub import Hub, ReplayControl
+from ..hub import Hub, ReplayControl, SystemStatusEx
 
 router = APIRouter()
 
@@ -31,9 +31,10 @@ def ready(request: Request):
     return body if ok else JSONResponse(status_code=503, content=body)
 
 
-@router.get("/api/v1/system/status", response_model=SystemStatus, tags=["system"],
+@router.get("/api/v1/system/status", response_model=SystemStatusEx, tags=["system"],
             summary="Режим LIVE/DEGRADED/REPLAY, время симуляции, сессии NDTP, состояние ml-core")
 def system_status(request: Request) -> SystemStatus:
+    """``SystemStatus`` контракта плюс необязательные счётчики приёма NDTP."""
     return _hub(request).status()
 
 
@@ -76,7 +77,7 @@ def horizon(request: Request) -> HorizonMetrics:
     return _hub(request).horizon()
 
 
-@router.post("/api/v1/replay/control", response_model=SystemStatus, tags=["system"],
+@router.post("/api/v1/replay/control", response_model=SystemStatusEx, tags=["system"],
              summary="Скорость и начальный момент воспроизведения исторического дня")
 def replay_control(request: Request, req: ReplayControl) -> SystemStatus:
     return _hub(request).replay_control(req)
