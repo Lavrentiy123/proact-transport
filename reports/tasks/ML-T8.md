@@ -1,5 +1,5 @@
 # ML-T8: pdoc, анти-утечка, model card — ✅
-**Время:** 25 мин   **Коммит:** см. ML-P1.md / `git log --grep "ML-T8"`   **Пуш:** см. ML-P1.md
+**Время:** 25 мин   **Коммит:** 421080d   **Пуш:** да
 ## Сделано
 - Docstrings (Google-стиль) у всех публичных функций и классов `features/` и `ml_core/` (проверено AST-сканом: пропусков нет).
 - pdoc: `.venv312/Scripts/python.exe -m pdoc -o docs/api/ml features ml_core` → `docs/api/ml/` (1.4 МБ HTML, коммитим). Для формы сдачи: `docs/api/ml/index.html` (в репозитории: https://github.com/Lavrentiy123/proact-transport/tree/main/docs/api/ml).
