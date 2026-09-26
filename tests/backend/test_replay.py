@@ -1,6 +1,7 @@
 """BE-4 (A3): replay ``data/test/traffic.csv`` → NDTP → TCP; координаты совпадают с CSV."""
 
 import asyncio
+import time
 from collections import defaultdict
 
 import numpy as np
@@ -9,7 +10,7 @@ import pytest
 from backend.app.clock import SimClock
 from backend.app.config import ROOT
 from backend.app.ndtp.codec import FrameDecoder
-from backend.app.replay import ReplayClient, load_rows
+from backend.app.replay import HttpClock, ReplayClient, load_rows
 from features import to_epoch_s
 
 START = "2026-01-06T07:00:00"
@@ -97,3 +98,94 @@ def test_end_of_data_idles_instead_of_exit(rows):
 
     client, took = asyncio.run(go())
     assert client.ended and took >= 0.55     # данные кончились, но цикл не вышел раньше срока
+
+
+def _run_loop(rows, clock):
+    async def go():
+        async def handle(reader, writer):
+            while await reader.read(65536):
+                pass
+            writer.close()
+
+        srv = await asyncio.start_server(handle, "127.0.0.1", 0)
+        port = srv.sockets[0].getsockname()[1]
+        client = ReplayClient(rows, "127.0.0.1", port, clock, preroll_s=600.0, loop=True, loop_start=START)
+        await client.run(duration_wall_s=0.6)
+        srv.close()
+        return client
+
+    return asyncio.run(go())
+
+
+def test_loop_rewinds_own_clock_after_end_of_data(rows):
+    clock = SimClock(float(rows.send_s[-1]) + 300.0, 10.0)
+    client = _run_loop(rows, clock)
+    t0 = to_epoch_s(START)
+    assert client.rewinds == 1
+    assert t0 <= clock.now_s() <= t0 + 60          # часы снова в начале дня
+    assert client.sent > 0 and client.cursor < len(rows.send_s)   # разгон и поток пошли заново
+
+
+def test_loop_does_not_wait_for_late_tail_packets(rows):
+    # в данных есть единичный пакет с receive_time на 4 ч позже последнего event_time — перемотка его не ждёт
+    assert rows.send_s[-1] - rows.ts.max() > 3600
+    clock = SimClock(float(rows.ts.max()) + 90.0, 10.0)
+    client = _run_loop(rows, clock)
+    assert client.rewinds == 1
+    assert clock.now_s() <= to_epoch_s(START) + 60
+
+
+class _FakeBackendClock(HttpClock):
+    """Часы «backend» без HTTP: sync ничего не меняет, rewind переносит время как replay/control."""
+
+    def __init__(self, sim_s, speed):
+        super().__init__("http://backend.invalid")
+        self.anchor_sim, self.anchor_wall, self.speed = sim_s, time.time(), speed
+        self.posted = []
+
+    def sync(self) -> bool:
+        return True
+
+    def rewind(self, start_at: str) -> bool:
+        self.posted.append(start_at)
+        self.anchor_sim, self.anchor_wall = to_epoch_s(start_at), time.time()
+        return True
+
+
+def test_loop_rewinds_backend_clock_in_sync_mode(rows):
+    clock = _FakeBackendClock(float(rows.send_s[-1]) + 300.0, 10.0)
+    client = _run_loop(rows, clock)
+    assert clock.posted == [START]                   # одна перемотка, без повторов
+    assert client.rewinds == 1 and client.sent > 0 and not client.ended
+
+
+def test_http_clock_rewind_posts_replay_control(monkeypatch):
+    import json as _json
+    import urllib.request as _ur
+
+    seen = []
+
+    class _Resp:
+        def __init__(self, body):
+            self.body = body
+
+        def read(self):
+            return self.body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        if isinstance(req, _ur.Request):
+            seen.append((req.full_url, req.get_method(), _json.loads(req.data)))
+            return _Resp(b"{}")
+        return _Resp(_json.dumps({"sim_time": START, "replay_speed": 10}).encode())
+
+    monkeypatch.setattr(_ur, "urlopen", fake_urlopen)
+    clock = HttpClock("http://backend:8000/")
+    assert clock.rewind(START)
+    assert seen == [("http://backend:8000/api/v1/replay/control", "POST", {"start_at": START})]
+    assert abs(clock.now_s() - to_epoch_s(START)) < 60

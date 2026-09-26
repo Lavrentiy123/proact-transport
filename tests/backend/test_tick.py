@@ -1,7 +1,7 @@
 """BE-5: тик, риск, причина, рекомендация, алерты с гистерезисом, журнал, ml-core и fallback."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 import numpy as np
@@ -80,6 +80,31 @@ def test_alert_decision_suppresses_until_calm():
     assert book.update(2, _fc(400), None, False, t) is not None       # успокоился — снова можно
 
 
+def test_empty_window_does_not_reset_alert_or_decision():
+    """Пустое окно расписания (fc=None) не снимает алерт и не сбрасывает решение диспетчера (ML-T7a)."""
+    book = AlertBook()
+    t = datetime(2026, 1, 6, 7, 0)                                      # до события (цель в _fc — 07:12)
+    a = book.update(3, _fc(400), None, False, t)
+    assert a is not None
+    for _ in range(5):                                                   # несколько тиков без остановки в окне
+        assert book.update(3, None, None, False, t) is a
+    book.decide(a.alert_id, "applied")
+    for _ in range(5):
+        assert book.update(3, None, None, False, t) is None
+    assert book.update(3, _fc(400), None, False, t) is None             # решение диспетчера не сброшено
+    b = book.update(3, _fc(400), None, False, t)
+    assert b is None and not book.active
+
+
+def test_alert_without_forecast_resolves_after_event():
+    book = AlertBook()
+    t = datetime(2026, 1, 6, 7, 0)
+    a = book.update(4, _fc(400), None, False, t)
+    late = a.forecast.target_time_plan + timedelta(seconds=400 + 301)
+    assert book.update(4, None, None, False, late) is None
+    assert book.closed[-1].status == "resolved" and not book.active
+
+
 def test_journal_metrics_and_csv():
     j = Journal()
     T = to_epoch_s("2026-01-06 07:00:00")
@@ -94,8 +119,9 @@ def test_journal_metrics_and_csv():
 
 
 def test_rule_fallback():
-    r = rule_predict(5, 100.0)
-    assert r.delay_pred_s == pytest.approx(68.0) and r.source == "fallback-rule" and r.model_version == FALLBACK_VERSION
+    r = rule_predict(5, 100.0)   # решение Б4: без ml-core — «по расписанию» (0), это точнее правила 0.6·cur+8
+    assert r.delay_pred_s == pytest.approx(0.0) and r.source == "fallback-rule" and r.model_version == FALLBACK_VERSION
+    assert r.delay_q10_s < 0 < r.delay_q90_s and 0.0 <= r.p_late < 0.5
     assert r.delay_q10_s < r.delay_pred_s < r.delay_q90_s
     assert rule_predict(5, float("nan")).cause_code == "low_data"
 
@@ -204,3 +230,20 @@ def test_tick_with_ml_core_real_day_raises_red_alert(rows, ml_transport):
     # снятый алерт хранит риск последнего прогноза (к снятию — зелёный); активные — красные
     assert all(a.risk == Risk.red for a in hub.ticker.book.active.values())
     WsMessage.model_validate_json(hub.snapshot().model_dump_json())
+
+
+def test_ml_core_ok_before_first_call_and_after_failure():
+    # до первого батча ml-core не «упал» (ложный баннер на дашборде); после ошибки — упал
+    hub = LiveHub(Settings(ml_url="http://ml-core.invalid:8001", replay_start_at="2026-01-06T07:00:00"))
+    assert hub.ticker.ml_status()[0] is True
+    hub.ticker.ml.calls, hub.ticker.ml.last_ok = 1, False
+    assert hub.ticker.ml_status()[0] is False
+
+
+def test_stop_label_without_address_uses_plan_time():
+    from datetime import datetime
+
+    from backend.app.alerts import stop_label
+    assert stop_label("Тверская ул.", datetime(2026, 1, 6, 7, 45)) == "ост. «Тверская ул.»"
+    assert stop_label("  ", datetime(2026, 1, 6, 7, 45)) == "ост. без адреса (план 07:45)"
+    assert stop_label(None) == "ост. без адреса"

@@ -12,6 +12,10 @@
   перезапуск replay продолжает с текущего момента backend (так проверяется обрыв потока);
 - без ``--sync-url`` — собственные часы с ``--start-at`` и ``--speed``.
 
+С ``--loop`` по концу данных replay перематывает часы на ``--loop-start`` (по умолчанию ``--start-at``):
+в режиме ``--sync-url`` — через ``POST /api/v1/replay/control`` backend (иначе после конца дня backend
+навсегда остался бы в DEGRADED), в собственном — своими часами.
+
 Перед стартом (и после переноса времени) отправляется «разгон» — последние ``--preroll-min`` минут
 телеметрии пачкой, чтобы у бортов заполнились буфер и детектор прибытий.
 
@@ -44,6 +48,8 @@ from .ndtp.codec import encode_handshake, encode_nav
 log = logging.getLogger("backend.replay")
 JUMP_S = 60.0          # расхождение часов больше этого — перемотка
 SYNC_EVERY_S = 2.0     # как часто сверять часы с backend (реальные секунды)
+LOOP_GRACE_S = 60.0    # --loop: перемотка через столько секунд симуляции после последнего event_time
+REWIND_EVERY_S = 30.0  # --loop: не чаще одной попытки перемотки за столько реальных секунд
 
 
 @dataclass
@@ -84,6 +90,7 @@ class HttpClock:
 
     def __init__(self, url: str):
         self.url = url.rstrip("/") + "/api/v1/system/status"
+        self.control_url = url.rstrip("/") + "/api/v1/replay/control"
         self.anchor_sim = math.nan
         self.anchor_wall = 0.0
         self.speed = 1.0
@@ -103,6 +110,18 @@ class HttpClock:
     def now_s(self) -> float:
         return self.anchor_sim + (time.time() - self.anchor_wall) * self.speed
 
+    def rewind(self, start_at: str) -> bool:
+        """Переносит время backend на ``start_at`` (``POST /api/v1/replay/control``) и сверяет часы."""
+        req = urllib.request.Request(self.control_url, data=json.dumps({"start_at": start_at}).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                r.read()
+        except Exception as e:
+            log.warning("clock rewind failed: %s", e)
+            return False
+        return self.sync()
+
 
 class ReplayClient:
     """Отправляет телеметрию датасета по NDTP, соблюдая часы симуляции.
@@ -112,14 +131,20 @@ class ReplayClient:
         host, port: NDTP-сервер.
         clock: :class:`backend.app.clock.SimClock` или :class:`HttpClock`.
         preroll_s: длина «разгона», секунды симуляции.
-        loop: по концу дня начать сначала.
+        loop: по концу дня перемотать часы на ``loop_start`` и начать сначала.
         tick_wall_s: период цикла отправки, реальные секунды.
+        loop_start: момент симуляции, на который перематывает ``loop``.
     """
 
     def __init__(self, rows: Rows, host: str, port: int, clock, preroll_s: float = 1800.0, loop: bool = False,
-                 tick_wall_s: float = 0.05):
+                 tick_wall_s: float = 0.05, loop_start: str = "2026-01-06T07:00:00"):
         self.rows, self.host, self.port, self.clock = rows, host, port, clock
         self.preroll_s, self.loop, self.tick_wall_s = preroll_s, loop, tick_wall_s
+        self.loop_start = loop_start
+        self.rewinds = 0
+        # конец дня — по времени события: в порядке отправки за ним идут единичные запоздавшие пакеты
+        # (в test/traffic.csv последний receive_time — 07.01 04:24), ждать их — часы пустого потока
+        self.end_s = float(rows.ts.max()) if len(rows.ts) else -math.inf
         self.writers: dict[int, asyncio.StreamWriter] = {}
         self.rid: dict[int, int] = {}
         self.retry_at: dict[int, float] = {}
@@ -198,6 +223,7 @@ class ReplayClient:
         log.info("replay start at sim %s, preroll %d rows, speed x%s", pd.Timestamp(self.clock.now_s() * 1e9),
                  n_pre, self.clock.speed)
         last_sync = time.time()
+        last_rewind = -math.inf
         expected = self.clock.now_s()
         try:
             while not self._stop.is_set() and time.time() < t_end:
@@ -220,10 +246,19 @@ class ReplayClient:
                     if self.cursor % 500 == 0:
                         await self._flush()
                 await self._flush()
+                if self.loop and now >= self.end_s + LOOP_GRACE_S and time.time() - last_rewind >= REWIND_EVERY_S:
+                    # перемотка часов (своих или backend) — сам курсор перемотает проверка скачка выше
+                    last_rewind = time.time()
+                    log.info("replay reached end of data, rewind to %s", self.loop_start)
+                    if is_http:
+                        if self.clock.rewind(self.loop_start):
+                            self.rewinds += 1
+                            last_sync = time.time()
+                    else:
+                        self.clock.set(start_at=self.loop_start)
+                        self.rewinds += 1
                 if self.cursor >= n:
-                    if self.loop:
-                        self.cursor = 0
-                    elif not self.ended:
+                    if not self.loop and not self.ended:
                         # конец дня: не выходим (иначе restart-политика compose гоняла бы контейнер по кругу),
                         # ждём остановки или переноса часов назад (перемотка выше)
                         log.info("replay reached end of data, idle")
@@ -245,12 +280,14 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--start-at", default="2026-01-06T07:00:00")
     p.add_argument("--speed", type=float, default=10.0)
     p.add_argument("--preroll-min", type=float, default=30.0)
-    p.add_argument("--loop", action="store_true")
+    p.add_argument("--loop", action="store_true", help="по концу данных перемотать часы и начать заново")
+    p.add_argument("--loop-start", default="", help="куда перематывает --loop (по умолчанию --start-at)")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     rows = load_rows(Path(a.traffic))
     clock = HttpClock(a.sync_url) if a.sync_url else SimClock(a.start_at, a.speed)
-    client = ReplayClient(rows, a.host, a.port, clock, preroll_s=a.preroll_min * 60, loop=a.loop)
+    client = ReplayClient(rows, a.host, a.port, clock, preroll_s=a.preroll_min * 60, loop=a.loop,
+                          loop_start=a.loop_start or a.start_at)
 
     async def run_until_signal() -> None:
         loop = asyncio.get_running_loop()
