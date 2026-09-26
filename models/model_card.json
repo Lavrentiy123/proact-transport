@@ -171,7 +171,18 @@
     "arch": "Linear(d,64)-ReLU-Dropout(0.1)-Linear(64,32)-ReLU-Linear(32,1)",
     "epochs": 60,
     "seeds": 5,
-    "minutes": 35.4
+    "minutes": 35.4,
+    "quantization_int8": {
+      "size_kb_fp32": 108.0,
+      "size_kb_int8": 52.7,
+      "pred_abs_diff_mean_s": 6.8,
+      "pred_abs_diff_p99_s": 28.35,
+      "latency_batch30_ms_fp32": 0.326,
+      "latency_batch30_ms_int8": 0.494,
+      "latency_batch150_ms_fp32": 0.969,
+      "latency_batch150_ms_int8": 1.603,
+      "decision": "fp32: int8 меняет прогноз в среднем на 6.8 с (p99 28.35 с), а выигрыш по времени на батче 30 — -0.168 мс (доли миллисекунды, в пределах шума замера) — в сервисе остаётся fp32 ONNX"
+    }
   },
   "ensemble_weights": {
     "catboost": 0.0,
