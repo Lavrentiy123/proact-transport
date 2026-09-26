@@ -35,3 +35,6 @@ Thumbs.db
 .venv312/
 cache/
 *.parquet
+
+# Экспорт командного чата (личные данные) — не публикуем
+ChatExport_*/
