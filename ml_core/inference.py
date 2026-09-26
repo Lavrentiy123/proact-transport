@@ -52,7 +52,7 @@ def rows_to_matrix(rows: list[dict], names: list[str]) -> tuple[np.ndarray, int]
         ``(X, n_extra)`` — матрица и число лишних (неизвестных модели) признаков во входе.
     """
     X = np.full((len(rows), len(names)), np.nan, dtype=np.float64)
-    known = set(names)
+    known = set(names) | set(FEATURE_NAMES)  # признаки пакета, которые модель не использует, — не «лишние»
     n_extra = 0
     for i, r in enumerate(rows):
         r = add_derived(r)
