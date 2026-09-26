@@ -21,6 +21,16 @@ REQUIRED = ("m_online", "m_online_q10", "m_online_q90", "m_sched")
 LAPLACE_Q90 = float(np.log(5.0))  # квантиль 0.9 распределения Лапласа в единицах MAE
 
 
+def onnx_session(model_bytes: bytes):
+    """Сессия onnxruntime для малой MLP: один поток — быстрее и стабильнее пула потоков на крошечной сети."""
+    import onnxruntime as ort
+
+    so = ort.SessionOptions()
+    so.intra_op_num_threads = 1
+    so.inter_op_num_threads = 1
+    return ort.InferenceSession(model_bytes, sess_options=so, providers=["CPUExecutionProvider"])
+
+
 class Predictor:
     """Держит модели в памяти и считает ответы ``/v1/predict``.
 
@@ -59,10 +69,7 @@ class Predictor:
             self.w_sched = float(blend.get("w_sched", 0.0))
             mlp = blend.get("mlp")
             if mlp:
-                import onnxruntime as ort
-
-                self.mlp = ort.InferenceSession((self.models_dir / Path(mlp["file"]).name).read_bytes(),
-                                                providers=["CPUExecutionProvider"])
+                self.mlp = onnx_session((self.models_dir / Path(mlp["file"]).name).read_bytes())
                 self.mlp_prep = mlp
             self.ready = True
             self.error = None
@@ -73,9 +80,11 @@ class Predictor:
 
     @property
     def model_version(self) -> str:
+        """Версия моделей из ``feature_config.json`` (``unknown``, пока не загружены)."""
         return self.config.get("model_version", "unknown")
 
     def spec(self, name: str) -> dict:
+        """Описание модели ``name`` из конфига: файл, признаки, база остатка, итерации, сиды."""
         return self.config["models"][name]
 
     # ---------------- члены ансамбля ----------------
@@ -96,12 +105,14 @@ class Predictor:
         names, bm = spec["features"], spec["base_mode"]
         cur = X[:, names.index("cur_dev_s")]
         base = base_of(cur, bm)
-        cat = self.models["m_online"].predict(X)
         w_mlp = self.w_mlp if self.mlp is not None else 0.0
         w_sched = self.w_sched
+        w_cat = 1.0 - w_mlp - w_sched
         if w_mlp == 0.0 and w_sched == 0.0:
-            return cat
-        delay = (1.0 - w_mlp - w_sched) * (base + cat)
+            return self.models["m_online"].predict(X)
+        delay = np.zeros(len(X))
+        if w_cat > 1e-9:  # член с нулевым весом не считаем
+            delay += w_cat * (base + self.models["m_online"].predict(X))
         if w_sched:
             ss = self.spec("m_sched")
             Xs = X[:, [names.index(f) for f in ss["features"]]]

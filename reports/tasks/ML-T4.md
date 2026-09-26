@@ -1,5 +1,5 @@
 # ML-T4: Сервис `ml-core` — ✅
-**Время:** 35 мин   **Коммит:** см. ML-T7a.md / `git log --grep "ML-T4"`   **Пуш:** см. ML-T7a.md
+**Время:** 35 мин   **Коммит:** ce128c9   **Пуш:** да (с 3-й попытки)
 ## Сделано
 - `ml_core/app/main.py` (FastAPI): `GET /health`, `GET /ready` (200/503), `GET /v1/model` (версия, признаки, веса ансамбля, метрики из `model_card.json`), `POST /v1/predict` (`PredictRequest` → `PredictResponse` из `contracts/schemas.py`), Swagger на `/docs`. Модели грузятся при старте (lifespan), а не при импорте.
 - `ml_core/app/predictor.py`: `online` — m_online + q10/q90 (калибровка ширины по LOBO) + `p_late` + причины окклюзией; `sched` — m_sched, интервал по LOBO MAE (приближение Лапласа), причина `accumulated`/`low_data`. Отсутствующий признак → NaN, лишние игнорируются (число — в лог). `delta_pred_s` — относительно `cur_dev_s` (контракт: `delay = clip(cur_dev + delta)`), модели грузятся из байтов (устойчиво к кириллице в путях).
