@@ -11,6 +11,23 @@ const left = 70
 const right = 965
 const top = 18
 const bottom = 140
+const WINDOW_BACK_MS = 30 * 60_000
+const WINDOW_AHEAD_MS = 40 * 60_000
+
+/** В живом режиме backend отдаёт расписание борта на весь день — показываем только окно вокруг «сейчас»
+ * (плюс целевую остановку), иначе на диаграмме сотни подписей и её невозможно прочитать. */
+function windowStops(stops: TrackResponse['stops'], simTime: string, targetStopId: number | undefined): TrackResponse['stops'] {
+  const now = contractTimeMs(simTime)
+  if (!Number.isFinite(now)) return stops
+  const inside = stops.filter((stop) => {
+    const t = contractTimeMs(stop.time_plan)
+    return (t >= now - WINDOW_BACK_MS && t <= now + WINDOW_AHEAD_MS) || stop.stop_id === targetStopId
+  })
+  if (inside.length >= 2) return inside
+  const nearest = [...stops].sort((a, b) =>
+    Math.abs(contractTimeMs(a.time_plan) - now) - Math.abs(contractTimeMs(b.time_plan) - now)).slice(0, 10)
+  return nearest.sort((a, b) => a.seq - b.seq)
+}
 
 function closestDistance(lat: number, lon: number, stops: TrackResponse['stops'], distances: number[]): number {
   let best = Number.POSITIVE_INFINITY
@@ -33,7 +50,11 @@ export default function MareyChart({ source, track, vehicle, simTime }: Props) {
     return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>Выберите борт с маршрутом</span></div></section>
   }
 
-  const stops = [...track.stops].sort((a, b) => a.seq - b.seq)
+  const sorted = [...track.stops].sort((a, b) => a.seq - b.seq)
+  const stops = source === 'live' ? windowStops(sorted, simTime, vehicle?.forecast?.target_stop_id) : sorted
+  if (stops.length < 2) {
+    return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>Нет плановых остановок рядом с текущим временем</span></div></section>
+  }
   const distances = stops.map((_, index) => index === 0 ? 0 :
     stops.slice(1, index + 1).reduce((sum, current, offset) =>
       sum + haversineMeters(stops[offset].lon, stops[offset].lat, current.lon, current.lat), 0))
@@ -44,6 +65,7 @@ export default function MareyChart({ source, track, vehicle, simTime }: Props) {
   const y = (distance: number) => bottom - (distance / totalDistance) * (bottom - top)
   const planPoints = stops.map((stop, index) => `${x(contractTimeMs(stop.time_plan))},${y(distances[index])}`).join(' ')
   const observedPoints = track.trail
+    .filter(([time]) => contractTimeMs(time) >= startTime && contractTimeMs(time) <= endTime)
     .map(([time, lat, lon]) => `${x(contractTimeMs(time))},${y(closestDistance(lat, lon, stops, distances))}`)
     .join(' ')
   const forecast = vehicle?.forecast
@@ -65,7 +87,7 @@ export default function MareyChart({ source, track, vehicle, simTime }: Props) {
         {forecast && Number.isFinite(forecastX) && <g><line x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} stroke="#fa8c85" strokeWidth="10" strokeOpacity=".3" strokeLinecap="round" /><line x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} stroke="#ff9990" strokeWidth="2" /><circle cx={forecastX} cy={y(targetDistance)} r="6" fill="#ff897f" stroke="#fff" strokeWidth="2" /><text x={Math.min(forecastX + 12, right - 120)} y={y(targetDistance) - 12} fill="#ffc3ae" fontSize="11">+{Math.round(forecast.delay_pred_s / 60)} мин</text></g>}
         <line x1={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} x2={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} y1={top} y2={bottom} stroke="#f3d693" strokeOpacity=".5" />
       </svg></div>
-      <div className="marey-footnote">{source === 'demo' ? 'Схема построена по демонстрационному маршруту.' : 'Схема построена по маршруту из backend.'} Положение наблюдения проецируется на маршрут.</div>
+      <div className="marey-footnote">{source === 'demo' ? 'Схема построена по демонстрационному маршруту.' : 'Окно −30…+40 мин вокруг времени потока, маршрут и трек из backend (обновляются каждые 15 с).'} Положение наблюдения проецируется на маршрут.</div>
     </section>
   )
 }

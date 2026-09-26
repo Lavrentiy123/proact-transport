@@ -199,3 +199,42 @@ button:focus-visible, select:focus-visible { outline: 2px solid #86d5e7; outline
   .marey-svg { width: 700px; max-width: none; }
   .marey-footnote { margin-left: 0; }
 }
+
+/* --- ML-T7a доработки дашборда: режим DEGRADED, решения диспетчера, горизонт, карта --- */
+.mode-pill.is-degraded { background: #4b3d22; color: #f7d08a; border: 1px solid #8d7042; }
+.degraded-banner { display: flex; align-items: center; gap: 9px; padding: 9px 15px; background: #4a3b25; color: #f7dcaa; border-inline: 1px solid #8d7042; font-size: 12px; font-weight: 600; }
+.metric-horizon strong { color: #9be4c5; }
+.quality-note { display: flex; gap: 6px; margin: 10px 16px 0; padding: 8px 10px; border-radius: 5px; background: #4a3b25; border: 1px solid #8d7042; color: #f7dcaa; font-size: 10px; line-height: 1.45; }
+.segment-line { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #b9ced6; font-size: 11px; line-height: 1.35; }
+.segment-line svg { flex-shrink: 0; color: #7ec7da; }
+.target-countdown.expected-arrival { margin-top: 6px; }
+.derived-box { margin-top: 0; }
+.action-buttons { display: flex; gap: 8px; margin: 10px 0 8px; flex-wrap: wrap; }
+.action-button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.action-button:disabled { opacity: .6; cursor: progress; }
+.action-apply { background: #2f7a60; border: 1px solid #45a584; color: #effff8; }
+.action-apply:hover:not(:disabled) { background: #378f70; }
+.action-dismiss { background: #2b3d48; border: 1px solid #41545e; color: #e0edf2; }
+.action-dismiss:hover:not(:disabled) { background: #3c5360; }
+.action-outcome { display: flex; flex-direction: column; gap: 5px; margin: 0 16px 16px; padding: 10px 12px; border-radius: 6px; background: #1c3a33; border: 1px solid #3b7567; color: #cfeee2; font-size: 11px; line-height: 1.45; }
+.action-outcome span { display: flex; align-items: center; gap: 5px; }
+.action-outcome .outcome-message { color: #a9cfc2; }
+.action-outcome strong { color: #9be4c5; }
+.action-outcome.is-error { flex-direction: row; align-items: center; background: #51252a; border-color: #833840; color: #ffd2ce; }
+.legend-grey { background: #8ca4b1; }
+.legend-target { background: #ff897f; box-shadow: 0 0 0 2px #ffffff; }
+.vehicle-popup .maplibregl-popup-content { background: #12232e; color: #e6f0f3; border: 1px solid #3c5966; border-radius: 6px; padding: 8px 10px; font-size: 11px; line-height: 1.45; box-shadow: 0 6px 18px #00000066; }
+.vehicle-popup .maplibregl-popup-tip { border-top-color: #12232e; border-bottom-color: #12232e; }
+.maplibregl-ctrl-attrib { background: #12232ecc !important; color: #9fb4bd; font-size: 9px; }
+.maplibregl-ctrl-attrib a { color: #b8cfd7; }
+
+/* What-If «скорость до остановки» в карточке инцидента */
+.whatif-box { margin: 0 16px 16px; padding: 12px; border: 1px dashed #4f6f86; border-radius: 6px; background: #172a38; }
+.whatif-title { display: flex; align-items: center; gap: 6px; color: #9fd0f0; font-size: 11px; font-weight: 800; }
+.whatif-slider { display: flex; align-items: center; gap: 10px; margin: 10px 0 6px; }
+.whatif-slider input { flex: 1; accent-color: #7ec7da; }
+.whatif-slider strong { min-width: 58px; text-align: right; color: #e9f1f4; font-size: 12px; font-variant-numeric: tabular-nums; }
+.whatif-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid #2d4250; }
+.whatif-row span { color: #9cb3bd; font-size: 10px; }
+.whatif-row strong { color: #e9f1f4; font-size: 12px; font-variant-numeric: tabular-nums; }
+.whatif-note { display: block; margin-top: 8px; color: #85a0ae; font-size: 9px; line-height: 1.45; }
