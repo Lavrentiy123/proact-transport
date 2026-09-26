@@ -26,6 +26,7 @@ import contextlib
 import json
 import logging
 import math
+import signal
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -244,8 +245,17 @@ def main(argv: list[str] | None = None) -> None:
     rows = load_rows(Path(a.traffic))
     clock = HttpClock(a.sync_url) if a.sync_url else SimClock(a.start_at, a.speed)
     client = ReplayClient(rows, a.host, a.port, clock, preroll_s=a.preroll_min * 60, loop=a.loop)
+
+    async def run_until_signal() -> None:
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            with contextlib.suppress(NotImplementedError, RuntimeError):   # Windows: без обработчиков сигналов
+                loop.add_signal_handler(sig, client.stop)
+        await client.run()
+        log.info("replay stopped: sent=%d dropped=%d reconnects=%d", client.sent, client.dropped, client.reconnects)
+
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(client.run())
+        asyncio.run(run_until_signal())
 
 
 if __name__ == "__main__":

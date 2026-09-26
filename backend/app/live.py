@@ -105,7 +105,7 @@ class LiveHub(Hub):
 
     def mode(self) -> Mode:
         """LIVE — пакеты NDTP идут; DEGRADED — пакетов нет дольше ``degraded_after_s`` (реальное время)."""
-        if self.server.last_packet_wall is None or self.last_packet_age_s() > self.s.degraded_after_s:
+        if self.server.last_packet_wall is None or self.last_packet_age_s() >= self.s.degraded_after_s:
             return Mode.degraded
         return Mode.live
 
