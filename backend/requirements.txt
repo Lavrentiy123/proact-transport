@@ -1,0 +1,7 @@
+# Runtime backend (версии совпадают с requirements/ml.txt и ml_core/requirements.txt).
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+pydantic==2.13.5
+httpx==0.28.1
+numpy==2.5.3
+pandas==2.3.3
