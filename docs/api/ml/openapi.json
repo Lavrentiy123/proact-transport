@@ -1,0 +1,296 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "ПроАкт.Транспорт — ml-core",
+  "description": "Прогноз задержки ТС за 10–15 минут: CatBoost (+ PyTorch MLP через ONNX), интервал q10–q90, P(опоздание > 120 с), причина (групповая окклюзия).",
+  "version": "1.0"
+ },
+ "paths": {
+  "/health": {
+   "get": {
+    "summary": "Процесс жив",
+    "description": "Всегда 200, пока процесс отвечает.",
+    "operationId": "health_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Health Health Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/ready": {
+   "get": {
+    "summary": "Модели загружены",
+    "description": "200, если все модели загружены, иначе 503 (с причиной).",
+    "operationId": "ready_ready_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/model": {
+   "get": {
+    "summary": "Версия, признаки и метрики моделей",
+    "description": "``model_version``, признаки каждой модели, веса ансамбля и метрики из ``model_card.json``.",
+    "operationId": "model_info_v1_model_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Model Info V1 Model Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/predict": {
+   "post": {
+    "summary": "Батч прогнозов для всех бортов тика",
+    "description": "``model=\"online\"`` — m_online + квантили + причины; ``model=\"sched\"`` — fallback по расписанию.\n\nОтсутствующий признак → NaN, лишние признаки игнорируются (их число пишется в лог).",
+    "operationId": "predict_v1_predict_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PredictRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PredictResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "PredictRequest": {
+    "properties": {
+     "model": {
+      "type": "string",
+      "title": "Model",
+      "default": "online"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/PredictRow"
+      },
+      "type": "array",
+      "title": "Rows"
+     }
+    },
+    "type": "object",
+    "required": [
+     "rows"
+    ],
+    "title": "PredictRequest"
+   },
+   "PredictResponse": {
+    "properties": {
+     "model_version": {
+      "type": "string",
+      "title": "Model Version"
+     },
+     "latency_ms": {
+      "type": "number",
+      "title": "Latency Ms"
+     },
+     "results": {
+      "items": {
+       "$ref": "#/components/schemas/PredictResult"
+      },
+      "type": "array",
+      "title": "Results"
+     }
+    },
+    "type": "object",
+    "required": [
+     "model_version",
+     "latency_ms",
+     "results"
+    ],
+    "title": "PredictResponse"
+   },
+   "PredictResult": {
+    "properties": {
+     "tr_id": {
+      "type": "integer",
+      "title": "Tr Id"
+     },
+     "delta_pred_s": {
+      "type": "number",
+      "title": "Delta Pred S"
+     },
+     "delay_pred_s": {
+      "type": "number",
+      "title": "Delay Pred S"
+     },
+     "delay_q10_s": {
+      "type": "number",
+      "title": "Delay Q10 S"
+     },
+     "delay_q90_s": {
+      "type": "number",
+      "title": "Delay Q90 S"
+     },
+     "p_late": {
+      "type": "number",
+      "title": "P Late"
+     },
+     "cause_code": {
+      "type": "string",
+      "title": "Cause Code"
+     },
+     "cause_confidence": {
+      "type": "number",
+      "title": "Cause Confidence"
+     },
+     "group_contrib_s": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "title": "Group Contrib S",
+      "default": {}
+     }
+    },
+    "type": "object",
+    "required": [
+     "tr_id",
+     "delta_pred_s",
+     "delay_pred_s",
+     "delay_q10_s",
+     "delay_q90_s",
+     "p_late",
+     "cause_code",
+     "cause_confidence"
+    ],
+    "title": "PredictResult"
+   },
+   "PredictRow": {
+    "properties": {
+     "tr_id": {
+      "type": "integer",
+      "title": "Tr Id"
+     },
+     "features": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "type": "object",
+      "title": "Features"
+     }
+    },
+    "type": "object",
+    "required": [
+     "tr_id",
+     "features"
+    ],
+    "title": "PredictRow"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}
