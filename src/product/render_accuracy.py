@@ -74,7 +74,11 @@ def rows_accuracy(card: dict) -> list[tuple[str, str, str]]:
     if oos:
         rows.append(("Поток: онлайн-прогноз для незнакомого борта (LOBO, точки test)", fmt(oos["online_mae_model_s"]), "—"))
         rows.append(("Поток: бейзлайн «восстановленный cur_dev» на тех же точках", fmt(oos["online_mae_baseline_s"]), "—"))
-    if oe:
+    live = card.get("stream_live", {})
+    if live:
+        rows.append(("Живой поток в Docker (replay ×10 по NDTP, журнал backend, в выборке)", fmt(live["online_mae_model_s"]), "—"))
+        rows.append(("Живой поток: бейзлайн «восстановленный cur_dev»", fmt(live["online_mae_baseline_s"]), "—"))
+    elif oe:
         rows.append(("Поток: replay дня test, тик 5 мин (в выборке — проверка потока)", fmt(oe["online_mae_model_s"]), "—"))
     return rows
 
@@ -135,6 +139,13 @@ def render(card: dict) -> str:
             f"({oe['forecasts_total']} прогнозов на replay дня test, тик 60 с): прогноз строится только для остановки "
             "в окне (T+10, T+15].",
         ]
+        live = card.get("stream_live", {})
+        if live:
+            lines.append(
+                f"- **То же на живом потоке** (docker compose, NDTP, журнал backend): {100 * live['share_lead_in_window']:.0f} % "
+                f"прогнозов в окне 10–15 мин, онлайн-MAE {fmt(live['online_mae_model_s'])} с против "
+                f"{fmt(live['online_mae_baseline_s'])} с у бейзлайна на {int(live['resolved_total'])} сверенных прогнозах; "
+                f"инференс ансамбля p50 {live['infer_ms_p50']:.0f} мс, p99 {live['infer_ms_p99']:.0f} мс.")
         oos = card.get("online_eval", {}).get("out_of_sample_lobo", {})
         if oos:
             lines.append(f"- Онлайн-прогноз для незнакомого борта: MAE {fmt(oos['online_mae_model_s'])} с против "

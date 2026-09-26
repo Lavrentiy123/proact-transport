@@ -109,7 +109,7 @@
     },
     "fwd_mae": 88.78925341803131
   },
-  "model_version": "m_online-v1-7c6e169",
+  "model_version": "m_online-v2-ens-189b8fe",
   "train_minutes": 43.4,
   "detector": {
     "coverage": 0.842,
@@ -240,5 +240,20 @@
       "online_mae_baseline_s": 177.11048158640227,
       "online_mae_zero_s": 103.33711048158641
     }
+  },
+  "stream_live": {
+    "tick_ms_p50": 61.01,
+    "tick_ms_p99": 224.38,
+    "infer_ms_p50": 27.89,
+    "infer_ms_p99": 123.72,
+    "tick_overruns": 1.0,
+    "crc_errors": 0.0,
+    "online_mae_model_s": 88.77,
+    "online_mae_baseline_s": 150.57,
+    "share_lead_in_window": 1.0,
+    "resolved_total": 6507.0,
+    "setup": "docker compose, replay дня 06.01 ×10 по NDTP, 8 мин, ноутбук i5-10210U",
+    "model_version": "m_online-v2-ens-189b8fe",
+    "source": "reports/logs/perf_load_after_T5_ensemble.jsonl"
   }
 }

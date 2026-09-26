@@ -1,6 +1,6 @@
 {
   "features_version": "v1",
-  "model_version": "m_online-v1-7c6e169",
+  "model_version": "m_online-v2-ens-189b8fe",
   "models": {
     "m_ds": {
       "file": "models/m_ds.cbm",

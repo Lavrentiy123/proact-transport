@@ -34,6 +34,7 @@ from ml_core.inference import (base_of, calibrate_interval_scale, mlp_fit_prep, 
                                order_quantiles, to_delay)
 from src.ml.cv import add_bus, lobo_folds, real_buses  # noqa: E402
 from src.ml.dataset import load_points, load_pool  # noqa: E402
+from src.submission_journal import git_hash_short  # noqa: E402
 
 EPOCHS, BATCH, LR, WD = 60, 256, 1e-3, 1e-4
 SEEDS = [0, 1, 2, 3, 4]
@@ -179,6 +180,8 @@ def main() -> None:
     cfg["blend"] = {"members": ["catboost", "catboost_sched", "torch_mlp_onnx"], "w_mlp": w, "w_sched": ws,
                     "mlp": {**prep, "file": ONNX_PATH.as_posix(), "base_mode": bm, "seeds": SEEDS, "epochs": EPOCHS}}
     cfg["interval_scale"] = scale
+    # версия потока: v2 = ансамбль (CatBoost-sched + PyTorch/ONNX), хеш — текущий коммит
+    cfg["model_version"] = card["model_version"] = f"m_online-v2-ens-{git_hash_short()}"
     cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     card["m_online"]["interval_scale"] = scale
     card["m_online"]["interval_q10_q90_coverage_lobo_calibrated"] = cover

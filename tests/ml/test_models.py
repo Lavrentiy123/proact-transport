@@ -104,7 +104,7 @@ def test_feature_config_contents(cfg):
     from features import FEATURES_VERSION
 
     assert cfg["features_version"] == FEATURES_VERSION
-    assert cfg["model_version"].startswith("m_online-v1-")
+    assert cfg["model_version"].startswith("m_online-v")
     for name in ("m_ds", "m_online", "m_online_q10", "m_online_q90", "m_sched"):
         assert name in cfg["models"]
     assert set(cfg["norms"]["m_online"]) == set(cfg["models"]["m_online"]["features"])
