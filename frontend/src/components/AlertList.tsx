@@ -11,6 +11,11 @@ interface Props {
   onSelect: (trId: number) => void
 }
 
+const alertWord = (count: number) => ({
+  zero: 'предупреждений', one: 'предупреждение', two: 'предупреждения',
+  few: 'предупреждения', many: 'предупреждений', other: 'предупреждения',
+})[new Intl.PluralRules('ru-RU').select(count)]
+
 export default function AlertList({ alerts, vehicles, selectedTrId, simTime, onSelect }: Props) {
   const active = alerts.filter((alert) => alert.status === 'active').sort((a, b) => b.priority - a.priority)
   const visible = active.slice(0, 7)
@@ -47,7 +52,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, simTime, onS
               </button>
             )
           })}
-          {active.length > 7 && <div className="alerts-more">Ещё {active.length - 7} предупреждений</div>}
+          {active.length > 7 && <div className="alerts-more">Ещё {active.length - 7} {alertWord(active.length - 7)}</div>}
         </div>
       )}
       <div className="panel-footer"><span className="live-dot" />События обновляются по мере поступления данных</div>

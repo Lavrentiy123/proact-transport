@@ -45,3 +45,4 @@ docker run --rm -p 3000:3000 proact-frontend
 
 Отчёт о выполнении этапов: [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md).
 Сценарий двухминутного показа: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md).
+Повторные проверки: [сборка и контейнер](docs/RETEST_BUILD_2026-09-26.md), [интерфейс и поток](docs/RETEST_UI_2026-09-26.md).

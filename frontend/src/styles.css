@@ -100,6 +100,9 @@ button:focus-visible, select:focus-visible { outline: 2px solid #86d5e7; outline
 .map-topline, .map-location-label, .map-legend, .map-route-hint { position: absolute; z-index: 1; }
 .map-topline { top: 18px; left: 18px; right: 18px; display: flex; justify-content: space-between; align-items: center; gap: 10px; pointer-events: none; }
 .map-topline span:first-child { display: flex; align-items: center; gap: 7px; border: 1px solid #537485; background: #162b38ed; border-radius: 5px; padding: 8px 10px; font-weight: 700; font-size: 12px; }
+.map-topline-actions { display: flex; align-items: center; gap: 8px; }
+.map-vehicle-picker { display: flex; align-items: center; gap: 6px; pointer-events: auto; color: #b3c7cf; background: #152c37e6; border: 1px solid #4b6672; border-radius: 4px; padding: 4px 6px; font-size: 10px; }
+.map-vehicle-picker select { min-width: 78px; max-width: 95px; color: #e5edf2; background: #0e1b24; border: 1px solid #3a4d57; border-radius: 3px; padding: 3px; font-size: 10px; }
 .map-offline-label { color: #b3c7cf; background: #152c37e6; border: 1px solid #4b6672; border-radius: 4px; padding: 7px 9px; font-size: 10px; }
 .map-location-label { bottom: 70px; left: 18px; display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 800; letter-spacing: .12em; color: #89a9b7; }
 .map-legend { bottom: 20px; left: 18px; display: flex; gap: 15px; background: #12232ee6; border: 1px solid #3c5966; border-radius: 5px; padding: 9px 11px; }

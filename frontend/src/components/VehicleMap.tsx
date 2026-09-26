@@ -166,7 +166,18 @@ export default function VehicleMap({ source, vehicles, selectedTrId, track, onSe
     <section className="map-panel" aria-label="Схема движения бортов">
       <div ref={containerRef} className="map-canvas" />
       <div className="map-grid-overlay" aria-hidden="true" />
-      <div className="map-topline"><span><Layers3 size={15} /> Схема маршрутов</span><span className="map-offline-label">Работает без тайлов</span></div>
+      <div className="map-topline">
+        <span><Layers3 size={15} /> Схема маршрутов</span>
+        <div className="map-topline-actions">
+          {vehicles.length > 0 && <label className="map-vehicle-picker">Борт
+            <select value={selectedTrId ?? ''} onChange={(event) => onSelect(Number(event.target.value))} aria-label="Выбрать борт на карте">
+              <option value="" disabled>Выберите</option>
+              {vehicles.map((item) => <option key={item.tr_id} value={item.tr_id}>{item.tr_id}</option>)}
+            </select>
+          </label>}
+          <span className="map-offline-label">Работает без тайлов</span>
+        </div>
+      </div>
       <div className="map-location-label"><Compass size={15} /> {source === 'demo' ? 'МОСКВА · ДЕМО-ДАННЫЕ' : 'МАРШРУТ · ДАННЫЕ ПОТОКА'}</div>
       <div className="map-legend">
         <span><i className="legend-dot legend-red" />Критично</span>
