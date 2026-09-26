@@ -1,0 +1,4 @@
+# Тесты и документация backend (в образ не входят).
+-r requirements.txt
+pytest==9.1.1
+pdoc==16.0.0
