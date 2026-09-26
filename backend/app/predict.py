@@ -3,9 +3,10 @@
 - Основной путь — один батч ``POST {ML_URL}/v1/predict`` на все борта тика (таймаут ``ml_timeout_s``).
 - ``ml_fail_threshold`` ошибок подряд → breaker открыт на ``ml_open_s`` секунд, затем одна пробная
   попытка (half-open).
-- Пока ``ml-core`` недоступен — правило ``0.6·cur_dev + 8`` (``cur_dev`` восстановлен детектором
-  прибытий, NaN → 0) с ``quality=fallback``. Это аварийный режим: на размеченном test это правило
-  даёт MAE 136.1 с (нулевой прогноз — 103.3 с, m_online по LOBO — 83.0 с), см. отчёт.
+- Пока ``ml-core`` недоступен — прогноз «по расписанию» (задержка 0) с ``quality=fallback``.
+  Решение капитана по Б4 (ML-T7a): правило ``0.6·cur_dev + 8`` на восстановленном ``cur_dev`` давало
+  на размеченном test MAE 136.1 с, нулевой прогноз — 103.3 с (ансамбль ml-core по LOBO — 79.5 с).
+  Интервал — Лаплас по MAE нулевого прогноза; причина — ``low_data`` (модель недоступна).
 """
 
 from __future__ import annotations
@@ -21,9 +22,8 @@ from contracts.schemas import PredictRequest, PredictResponse
 
 log = logging.getLogger("backend.predict")
 
-FALLBACK_VERSION = "fallback-rule-0.6cur+8"
-RULE_A, RULE_B = 0.6, 8.0
-RULE_MAE_TEST_S = 136.1            # MAE правила на labels_test с восстановленным cur_dev (отчёт, шаг 5)
+FALLBACK_VERSION = "fallback-schedule-zero"
+RULE_MAE_TEST_S = 103.3            # MAE нулевого прогноза на labels_test (правило 0.6·cur_dev+8 давало 136.1)
 LAPLACE_Q90 = math.log(5.0)        # квантиль 0.9 распределения Лапласа в единицах MAE
 LATE_S = 120.0
 Z_10_90 = 2.563
@@ -54,18 +54,15 @@ class Result:
 
 
 def rule_predict(tr_id: int, cur_dev_s: float | None) -> Result:
-    """Fallback-правило ``0.6·cur_dev + 8``; интервал — Лаплас по MAE правила на test."""
-    cur = cur_dev_s if cur_dev_s is not None and math.isfinite(cur_dev_s) else None
-    base = cur if cur is not None else 0.0
-    pred = RULE_A * base + RULE_B
+    """Прогноз без ml-core: «по расписанию» (задержка 0), интервал — Лаплас по MAE нулевого прогноза.
+
+    ``cur_dev_s`` не используется в самом прогнозе (восстановленное отклонение шумное и хуже нуля), но
+    параметр оставлен для совместимости вызова из тика.
+    """
+    pred = 0.0
     half = LAPLACE_Q90 * RULE_MAE_TEST_S
     q10, q90 = pred - half, pred + half
-    if cur is None:
-        code, conf = "low_data", 1.0
-    else:
-        d = abs(pred - base)
-        code, conf = ("early", 1.0) if pred < -60 else ("accumulated", abs(base) / (abs(base) + d) if abs(base) + d else 1.0)
-    return Result(tr_id, pred, q10, q90, p_late(pred, q10, q90), code, float(conf), {}, FALLBACK_VERSION,
+    return Result(tr_id, pred, q10, q90, p_late(pred, q10, q90), "low_data", 1.0, {}, FALLBACK_VERSION,
                   "fallback-rule")
 
 

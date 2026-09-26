@@ -105,6 +105,29 @@ def run_replay(tr_ids: list[int] | None = None, tick_s: int = 60, predictor: Pre
     return pd.DataFrame(rec)
 
 
+def early_warning(res: pd.DataFrame, late_s: float = 120.0) -> dict:
+    """Ранние предупреждения и отсутствие прогнозов «задним числом» (по фактам, только оценка).
+
+    ``actual_lead`` — сколько секунд от выдачи прогноза до ФАКТИЧЕСКОГО прибытия (план + фактическая задержка).
+    Прогноз задним числом — ``actual_lead ≤ 0``. Опоздание — фактическая задержка > 120 с (порог late датасета).
+    """
+    if not len(res):
+        return {}
+    actual_lead = res.lead_s + res.fact_delay_s
+    late = res.fact_delay_s > late_s
+    warned = res.pred > late_s
+    return {
+        "share_issued_before_actual_arrival": float((actual_lead > 0).mean()),
+        "actual_lead_min_s": float(actual_lead.min()),
+        "actual_lead_p50_s": float(actual_lead.median()),
+        "late_events": int(late.sum()),
+        "late_warned_share": float(warned[late].mean()) if late.any() else float("nan"),
+        "warning_precision": float(late[warned].mean()) if warned.any() else float("nan"),
+        "late_p_late_mean": float(res.p_late[late].mean()) if late.any() else float("nan"),
+        "ontime_p_late_mean": float(res.p_late[~late].mean()) if (~late).any() else float("nan"),
+    }
+
+
 def summarize(log: pd.DataFrame) -> dict:
     """Метрики журнала тиков: горизонт, покрытие, онлайн-MAE против бейзлайна, причины, время на борт."""
     built = log[log.built]
@@ -121,6 +144,7 @@ def summarize(log: pd.DataFrame) -> dict:
         "online_mae_zero_s": float(np.abs(res.fact_delay_s).mean()) if len(res) else float("nan"),
         "interval_coverage": float(((res.fact_delay_s >= res.q10) & (res.fact_delay_s <= res.q90)).mean()) if len(res) else float("nan"),
         "causes_pct": {k: round(100 * v, 1) for k, v in built.cause.value_counts(normalize=True).items()},
+        **early_warning(res),
         "per_bus_ms_p50": float(np.percentile(per_bus_ms, 50)) if len(built) else float("nan"),
         "per_bus_ms_p99": float(np.percentile(per_bus_ms, 99)) if len(built) else float("nan"),
         "buses": int(log.tr_id.nunique()),
@@ -150,9 +174,14 @@ def out_of_sample(card_cfg: dict | None = None) -> dict:
     mlp = base + np.load(t3 / f"oof_mlp_{on['base_mode']}.npz", allow_pickle=True)["d_mlp"] if wm else 0.0
     pred = np.clip((1 - ws - wm) * cat + ws * sch + wm * mlp, -400, 700)
     m = ((pr["split"] == "test") & (pr["tr_id"] < 9_000_000)).to_numpy()
+    late, warned = y[m] > 120.0, pred[m] > 120.0
     return {"n_points": int(m.sum()), "online_mae_model_s": float(np.abs(pred[m] - y[m]).mean()),
             "online_mae_baseline_s": float(np.abs(_base(cur[m]) - y[m]).mean()),
-            "online_mae_zero_s": float(np.abs(y[m]).mean())}
+            "online_mae_zero_s": float(np.abs(y[m]).mean()),
+            # ранние предупреждения для незнакомого борта: опоздание > 2 мин предсказано заранее
+            "late_events": int(late.sum()),
+            "late_warned_share": float(warned[late].mean()) if late.any() else float("nan"),
+            "warning_precision": float(late[warned].mean()) if warned.any() else float("nan")}
 
 
 def render(m300: dict, m60: dict, oos: dict | None = None) -> str:
@@ -178,6 +207,13 @@ def render(m300: dict, m60: dict, oos: dict | None = None) -> str:
         row("Онлайн-MAE бейзлайна `cur_dev` (восст.), с", "online_mae_baseline_s"),
         row("Онлайн-MAE «задержка = 0», с", "online_mae_zero_s"),
         row("Факт внутри q10–q90", "interval_coverage", "{:.3f}"),
+        row("Прогнозов, выданных ДО фактического прибытия", "share_issued_before_actual_arrival", "{:.3f}"),
+        row("Минимальный фактический запас до прибытия, с", "actual_lead_min_s", "{:.0f}"),
+        row("Медианный фактический запас до прибытия, с", "actual_lead_p50_s", "{:.0f}"),
+        row("Фактических опозданий > 2 мин", "late_events", "{:d}"),
+        row("Из них модель заранее предсказала > 2 мин", "late_warned_share", "{:.3f}"),
+        row("Точность предупреждений (прогноз > 2 мин → опоздание)", "warning_precision", "{:.3f}"),
+        row("Средняя P(опоздание): у опоздавших / у вовремя", "late_p_late_mean", "{:.2f}"),
         row("Время на борт (признаки + доля батча), p50, мс", "per_bus_ms_p50", "{:.2f}"),
         row("Время на борт, p99, мс", "per_bus_ms_p99", "{:.2f}"),
         "",

@@ -107,6 +107,8 @@ def main(argv=None) -> int:
     ap.add_argument("--frontend", default="http://localhost:3000")
     ap.add_argument("--timeout", type=float, default=60.0)
     args = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):   # консоль Windows в cp1251 не печатает «→»
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     errs = check_http(args)
     errs += asyncio.run(check_ws(args))
     # то же через nginx дашборда — так, как ходит браузер (прокси /api и /ws на backend)

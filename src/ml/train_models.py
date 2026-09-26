@@ -3,8 +3,7 @@
 Запуск из корня репозитория: ``.venv312/Scripts/python.exe -m src.ml.train_models``.
 
 Правила (анти-утечка): итерации и база остатка выбираются только по LOBO; test и validate не
-участвуют в выборе (official печатается для сравнения с LB; вариант сабмита с/без TOD — по official,
-как требует план). Финальные модели — среднее 5 сидов (``sum_models``), обучены на train + test labels.
+участвуют в выборе (official печатается только для сравнения с LB; вариант сабмита с/без TOD — тоже по LOBO). Финальные модели — среднее 5 сидов (``sum_models``), обучены на train + test labels.
 
 Промежуточные результаты LOBO кешируются в ``cache/t3/`` — перезапуск не пересчитывает готовое.
 """
@@ -156,7 +155,8 @@ def main() -> None:
     off_tod = mae(y[te_o], eval_split(po, M_DS_FEATURES, "cur_dev", it_ds, tr_o, te_o, SEEDS))
     off_nt = mae(y[te_o], eval_split(po, M_DS_NOTOD_FEATURES, "cur_dev", it_ds, tr_o, te_o, SEEDS))
     fwd_ds = mae(y[te_f], eval_split(po, M_DS_FEATURES, "cur_dev", it_ds, tr_f, te_f))
-    variant = "tod" if off_tod <= off_nt else "notod"
+    # вариант с TOD / без — по LOBO (official печатается только для сравнения; на 26.09 оба выбирают tod)
+    variant = "tod" if by_it[it_ds] <= by_it_nt[it_ds] else "notod"
     per_bus = pd.Series(np.abs(oof[it_ds] - y)[real_mask]).groupby(po.bus.to_numpy()[real_mask]).mean().round(1)
     card["m_ds"] = {"iterations": it_ds, "lobo_by_iter": by_it, "lobo_mae": by_it[it_ds],
                     "lobo_by_iter_notod": by_it_nt, "lobo_mae_notod": by_it_nt[it_ds],
@@ -235,6 +235,14 @@ def main() -> None:
     (MODELS / "feature_config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     card["model_version"] = model_version
     card["train_minutes"] = round((time.time() - t_start) / 60, 1)
+    # замеры других скриптов (детектор, латентность, живой поток) не теряем при переобучении; у stream_live
+    # своя model_version — генераторы документов помечают замер, снятый на другой модели
+    old_path = MODELS / "model_card.json"
+    if old_path.exists():
+        old = json.loads(old_path.read_text(encoding="utf-8"))
+        for k in ("detector", "latency", "stream_live"):
+            if k in old and k not in card:
+                card[k] = old[k]
     (MODELS / "model_card.json").write_text(json.dumps(card, ensure_ascii=False, indent=2), encoding="utf-8")
     log(f"done in {card['train_minutes']} min; model_version={model_version}")
     calibrate_interval()

@@ -106,6 +106,13 @@ export interface HorizonMetrics {
   online_mae_baseline_s: number | null
 }
 
+export interface ActionResponse {
+  alert_id: string
+  status: string
+  driver_message: string
+  driver_reply: string | null
+}
+
 /** Reject malformed live frames before they reach rendering components. */
 export function parseWsMessage(raw: unknown): WsMessage | null {
   const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
