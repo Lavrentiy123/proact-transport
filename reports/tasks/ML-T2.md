@@ -1,5 +1,5 @@
 # ML-T2: Пакет `features/` — одинаковые признаки офлайн и онлайн — ✅
-**Время:** 55 мин   **Коммит:** см. ML-T3.md / `git log --grep "ML-T2"`   **Пуш:** см. ML-T3.md
+**Время:** 55 мин   **Коммит:** 7c6e169   **Пуш:** да
 ## Сделано
 - `features/`: `geo.py` (haversine R = 6 371 000 м, `parse_point`), `io.py` (`load_traffic`, `load_schedule` без фактов, `ScheduleArrays`, время = наивное время как UTC), `stop_detector.py` (`StopDetector`), `build.py` (`FEATURE_NAMES` — 34 признака, `FEATURES_VERSION = "v1"`, `build_features`, `build_features_batch`), `online.py` (`OnlineVehicle`).
 - Все пути (`build_features`, `build_features_batch`, `OnlineVehicle.features_at`) считают признаки одной функцией `features_from_arrays` на numpy-срезах. Телеметрия — окно `(T − 30 мин, T]` (= буфер онлайн), в батче `np.searchsorted`, без `iterrows`.
