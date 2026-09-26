@@ -1,4 +1,4 @@
-import { parseWsMessage, type TrackResponse, type WsMessage } from '../types/contracts'
+import { parseWsMessage, type ActionResponse, type HorizonMetrics, type TrackResponse, type WsMessage } from '../types/contracts'
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected'
 
@@ -71,4 +71,29 @@ export async function fetchTrack(trId: number, signal: AbortSignal): Promise<Tra
     typeof item[0] === 'string' && typeof item[1] === 'number' && typeof item[2] === 'number'
   if (!track.stops.every(validStop) || !track.trail.every(validTrail)) throw new Error('Некорректный ответ маршрута')
   return track as TrackResponse
+}
+
+/** Горизонт 10–15 минут и онлайн-MAE, которые backend считает по журналу прогнозов потока. */
+export async function fetchHorizon(signal: AbortSignal): Promise<HorizonMetrics | null> {
+  const response = await fetch('/api/v1/metrics/horizon', { signal })
+  if (!response.ok) return null
+  const value = await response.json() as Partial<HorizonMetrics>
+  if (typeof value.forecasts_total !== 'number' || typeof value.share_lead_in_window !== 'number') return null
+  return value as HorizonMetrics
+}
+
+/** Решение диспетчера по алерту: apply — отправить рекомендацию водителю, dismiss — отклонить. */
+export async function postAction(alertId: string, action: 'apply' | 'dismiss'): Promise<ActionResponse> {
+  const response = await fetch('/api/v1/actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alert_id: alertId, action }),
+  })
+  if (response.status === 409) throw new Error('алерт уже снят или решён')
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const value = await response.json() as Partial<ActionResponse>
+  if (typeof value.alert_id !== 'string' || typeof value.status !== 'string' || typeof value.driver_message !== 'string') {
+    throw new Error('Некорректный ответ на действие')
+  }
+  return value as ActionResponse
 }
