@@ -68,7 +68,7 @@ services:
   #     backend: {condition: service_healthy}
   #   ports: ["${FRONTEND_PORT:-3000}:3000"]
   #   healthcheck:
-  #     test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+  #     test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]   # не localhost: busybox идёт на ::1, nginx слушает IPv4
   #     interval: 5s
   #     retries: 10
   #   restart: unless-stopped

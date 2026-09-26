@@ -181,21 +181,23 @@ def ml_transport():
 
 
 def test_tick_with_ml_core_real_day_raises_red_alert(rows, ml_transport):
-    """Настоящий ml-core (m_online) на реальном дне: прогнозы full, горизонт 1.0, красный алерт поднимается.
+    """Настоящий ml-core на реальном дне: прогнозы full, горизонт 1.0, красный алерт поднимается.
 
-    На test-дне первый красный прогноз модели — в 07:27 (07:00–07:10 красных нет), поэтому окно 07:00–07:35.
+    Когда именно появится первый алерт, зависит от версии модели (m_online до ML-T5 — 07:27, ансамбль с
+    PyTorch/ONNX после ML-T5 — 07:01:50), поэтому окно 07:00–07:35 и проверяется только сам факт алерта.
     """
     hub = LiveHub(Settings(ml_url="http://ml-core", replay_start_at="2026-01-06T07:00:00"))
     hub.ticker.ml = MlClient("http://ml-core", timeout_s=5, transport=ml_transport)
     _run_ticks(hub, rows, "2026-01-06T07:00:00", 420)    # 07:00–07:35, тик 5 с
     fcs = list(hub.forecasts.values())
     assert fcs and all(fc.quality in (Quality.full, Quality.degraded) for fc in fcs)
-    assert all(fc.model_version.startswith("m_online") for fc in fcs)
+    assert all(fc.model_version for fc in fcs)
     m = hub.horizon()
     assert m.share_lead_in_window == 1.0 and m.forecasts_total >= 1000 and m.resolved_total > 0
     assert hub.ticker.book.raised_total >= 1, "за 07:00–07:35 не поднялся ни один алерт"
     alerts = sorted(list(hub.ticker.book.active.values()) + list(hub.ticker.book.closed), key=lambda a: a.created_at)
     first = alerts[0]
-    assert first.created_at >= datetime(2026, 1, 6, 7, 10)            # фиксируем наблюдение: не раньше 07:10
-    assert first.risk == Risk.red and first.forecast.cause.evidence and first.title.startswith("Борт ")
+    assert first.forecast.cause.evidence and first.title.startswith("Борт ")
+    # снятый алерт хранит риск последнего прогноза (к снятию — зелёный); активные — красные
+    assert all(a.risk == Risk.red for a in hub.ticker.book.active.values())
     WsMessage.model_validate_json(hub.snapshot().model_dump_json())
