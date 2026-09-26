@@ -5,12 +5,22 @@
 
 ## 1. Сводка
 
-Заполняется в конце.
+Ветка `rastsov/backend`, шаги §6 брифа (1–13), время выполнения 26.09.
+
+| Статус | Шаги |
+|---|---|
+| Готово | 8 — шаги 1, 2, 3, 6, 7, 8, 9, 10 (в шаге 1 отправить команду Пуртову и в шаге 7 записать видео может только человек) |
+| WIP (критерий не выполнен, причина записана) | 3 — шаг 4 («30 бортов» недостижимо по данным: в эфире 15–16), шаг 5 (первый алерт через 162.7 с, а не за 60 с: модель даёт первый красный прогноз в 07:27), шаг 12 (ссылки формы из чистого браузера — 404, репозиторий приватный) |
+| Не начато | 0 |
+| Нужен человек | 2 — шаг 11 (заменён чистым клоном и прогоном по инструкции), шаг 13 (сделан на HEAD; тег `v1.0` ставит капитан, видео пишет человек); плюс не выполнялись по условию: шаг 0 (синк), слияния 22:00 и 14:00, тег 18:00 |
+
+Главное: система поднимается одной командой (`docker compose up --build -d`, `/ready` через 12.8–24 с при собранном кэше, сборка без кэша 121 с), принимает настоящий NDTP (в т.ч. от официального эмулятора, 1000 юнитов — 1013.7 пакета/с, 0 ошибок CRC), строит прогноз строго на 10–15 минут через `ml-core` (доля горизонта 1.0, онлайн-MAE 85.3 с против 173.7 с у бейзлайна), держит обрыв потока (DEGRADED 14.6–14.9 с, возврат LIVE 1.8–2.1 с) и работает сквозь дашборд Пуртова. Последний коммит — в конце таблицы §2 и в выводе `git log`.
 
 ## 2. Таблица по шагам
 
 | № | Статус | Коммит | Критерий из брифа (дословно) | Чем проверено (команда) | Результат |
 |---|---|---|---|---|---|
+| 0 | нужен человек (не выполнялся по условию) | — | синк: вопросы капитану и Пуртову | — | — |
 | 1 | готово; сообщение Пуртову — нужен человек | `7b9f833` | «`pytest tests/backend` зелёный, каждый ответ проходит `model_validate` по `contracts.schemas`; пуш; Пуртову отправлена команда запуска API» | `.venv/Scripts/python.exe -m pytest tests/backend -q`; `BACKEND_STUB=1 python -m uvicorn backend.app.main:app --port 8000`, затем `curl localhost:8000/ready`, `curl -o /dev/null -w %{http_code} localhost:8000/docs`, клиент `websockets` на `/ws/live` | `9 passed`; `{"status":"ready","detail":"stub: contracts/examples/ws_snapshot.json"}`; `docs:200`; `ws 0 snapshot 2026-01-06T12:40:00 3` / `ws 1 snapshot …`. Команда для Пуртова записана в `backend/README.md`; отправить её в чат команды может только человек |
 | 2 | готово | `f0abad7` | «round-trip на 1000 случайных кадров; дамп живого эмулятора разбирается без CRC-ошибок; битый CRC и мусор не роняют парсер» | `.venv/Scripts/python.exe -m pytest tests/backend -W ignore` (тесты `test_round_trip_1000_random_frames`, `test_emulator_fixture_parses_without_crc_errors`, `test_bad_crc_is_counted_not_raised`, `test_garbage_before_signature_resyncs`, `test_stream_split_into_random_chunks`); фикстура записана с живого `ndtp-telemetry-emulator:1.0` | `18 passed in 0.67s`; разбор фикстуры: `20 DecodeStats(frames=20, crc_errors=0, garbage_bytes=0, bad_headers=0, unknown_cells=0) 0`; ячейки realtime `[0, 8, 16, 2, 10]` |
 | 3 | готово | `214af22` | «живой эмулятор → `/api/v1/system/status`: `ndtp_sessions > 0`, пакеты растут, `crc_errors = 0`, сервис не падает на неизвестном `unitId`» | backend: `python -m uvicorn backend.app.main:app --port 8000` (NDTP :9201); эмулятор: `docker run --rm -p 18080:18080 --add-host=host.docker.internal:host-gateway ndtp-telemetry-emulator:1.0`; `POST /api/config` с юнитами 1166336 и 900001 (`autoGenerate`, `intervalMs: 2000`, в датасете их нет); `curl /api/v1/system/status` через 5 с и ещё через 10 с; `curl /health`; `curl /api/v1/vehicles`. Тест `tests/backend/test_ndtp_ingest.py` (реальный сокет) | t1: `"ndtp_sessions":2 … "ndtp_packets_total":6 … "ndtp_crc_errors_total":0 … "unknown_units":2`; t2 (+10 с): `"ndtp_packets_total":16 … "ndtp_crc_errors_total":0`; `health:200`; `vehicles [(900001, 55.6998, 37.5001, None), (1166336, 55.7338, 37.5333, None)]`; строк `error/traceback` в логе backend: 0; `pytest tests/backend`: `21 passed in 1.12s` |
@@ -23,11 +33,23 @@
 | 10 | готово | `7e1ad3f` | «пробный запрос в Swagger возвращает `ActionResponse`» | `docker compose up -d`; `curl -X POST /api/v1/replay/control -d '{"start_at": "2026-01-06T07:25:00"}'` (чтобы алерт появился быстро); Swagger UI `http://localhost:8000/docs` во встроенном браузере → `POST /api/v1/actions` → Try it out → тело `{"alert_id": "122048-1767684405", "action": "apply", "comment": "проверка из Swagger"}` → Execute; затем `curl /api/v1/alerts?status=applied`; тест `tests/backend/test_actions.py` | алерт появился через `11s` после переноса на 07:25; ответ Swagger: код `200`, тело `{"alert_id": "122048-1767684405", "status": "applied", "driver_message": "Диспетчер: Держать среднюю скорость 34 км/ч до ост. «Каширское ш., д.25Б»", "driver_reply": "успеваю"}`; алерт ушёл из активных в `applied`. Ответ водителя — **эмуляция по правилу** (`driver_reply` в `backend/app/ticker.py`), как и предусматривает контракт для демо |
 | 11 | заменено, нужен человек | `c4265ac` | «прошёл без моих подсказок; все места, где человек застрял, исправлены» | Замена: `GIT_LFS_SKIP_SMUDGE=1 git clone --branch rastsov/backend <origin> jury` во временную папку, удалены образы `proact-*`; дальше строго по `docs/JURY_GUIDE.md`: §2 `docker compose up --build -d` и `curl /ready`; §3 `curl` каждого адреса таблицы и клиент WS; §4 команда `replay/control` и `docker load -i data/ndtp-telemetry-emulator.tar` без git-lfs; §5 `metrics/horizon`, `alerts`, `bash scripts/chaos.sh` | `up --build -d: 24 s` (кэш сборщика этой машины был), `{"status":"ready","detail":"schedule: 13 buses; NDTP :9201"}`, LIVE через 3 с; все 8 адресов §3 → `200`, `ws 7863 bytes`; `replay/control` → `"sim_time":"2026-01-06T07:25:00…","replay_speed":5.0`; алерт `122048-1767684520` в 07:28:40; chaos `degraded=14.6s live=1.9s`. **Где застрял бы человек (исправлено в инструкции):** `docker load` на указателе LFS даёт `unexpected EOF` — добавлена строка в таблицу ошибок; после `replay/control` метрики горизонта обнуляются — объяснено; `chaos.sh` требует bash — указан Git Bash; кавычки `curl` в PowerShell — добавлен вариант. **Не исправлено в этом шаге:** `docs/api/backend/index.html` нет в клоне — HTML pdoc коммитится на шаге 12. Проверка на чужом ноутбуке человеком не проводилась |
 | 12 | WIP (pdoc открывается; ссылки проверены, но из чистого браузера все отдают 404 — репозиторий приватный) | `ed4d4f3` | «pdoc открывается; ссылки из формы проверены из чистого браузера» | `PYTHON=.venv/Scripts/python.exe bash scripts/build_docs.sh` (pdoc по `backend` и `features`, капитан pdoc не собирал — в `origin/main` нет `docs/api/`); локальный `python -m http.server 8765` в `docs/api/backend` + `curl` страниц + встроенный браузер `http://localhost:8765/backend/app/live.html`; ссылки формы: анонимный `curl -o /dev/null -w %{http_code}` и встроенный браузер без входа в GitHub | pdoc: `openapi paths: 11`; `200 index.html`, `200 backend.html`, `200 features.html`, `200 backend/app/live.html`, `200 backend/app/ndtp/codec.html`, `200 backend/app/ticker.html`; страница рендерится (`Title: backend.app.live API documentation`). Ссылки: `404 https://github.com/Lavrentiy123/proact-transport` и ещё 4 ссылки на файлы — `404`; браузер: `Page not found · GitHub`. Сделаны документы: `docs/JURY_GUIDE.md`, `docs/perf.md`, `docs/form_perf_and_features.md` (П6, П8, цифры из замеров шагов 6–9), `docs/architecture.md` (П5: схема и таблица сбоев). Блок `frontend` в compose приведён к `frontend/Dockerfile` из ветки Пуртова (контекст `./frontend`, порт 3000) — пока закомментирован |
-| 13 | частично: запуск с нуля, сцена обрыва и сквозная проверка с фронтом сделаны на HEAD; тег `v1.0` (капитан) и запись видео — нужен человек; ссылки формы — 404 | этот коммит `[BE-13]` | В брифе колонка критерия пуста; содержание шага: «повторный запуск с нуля по `v1.0`, проверка ссылок формы, сцена обрыва для видео» | `git tag -l v1.0` и `git ls-remote --tags origin` (пусто — тега нет); чистый `GIT_LFS_SKIP_SMUDGE=1 git clone` HEAD `ed4d4f3` → `docker compose up --build -d` → `curl /ready`; фронт из `origin/codex/purtov-frontend` (`git archive … frontend` во временную папку, `docker build`, контейнер в сети `proact_default` на :3000) → встроенный браузер `http://localhost:3000`, источник «Живой поток»; `WITH_ML=0 bash scripts/chaos.sh` + снимок дашборда во время обрыва; анонимный `curl` ссылок формы | `up --build -d: 17 s`, `{"status":"ready",…}`; фронт: `frontend build: 28 s`, `frontend:200`, `frontend->/api/v1/vehicles:200`; на дашборде в «Живом потоке»: `LIVE`, `07:29:07`, 14 бортов, алерт «Борт 122048 +5:19 к Каширское ш., д.45, через 10:53», карточка: q10–q90 `+0:47 → +7:00`, вероятность `91%`, причина «Накопленное отставание, уже +9:23 на ост. …», рекомендация «Держать среднюю скорость 32 км/ч»; во время обрыва плашка `DEGRADED`; chaos: `DEGRADED через 14.9 с`, `LIVE через 2.1 с`, `/health=200`; ссылки: `404 https://github.com/Lavrentiy123/proact-transport`, `404 …/docs/JURY_GUIDE.md` |
+| 13 | частично: запуск с нуля, сцена обрыва и сквозная проверка с фронтом сделаны на HEAD; тег `v1.0` (капитан) и запись видео — нужен человек; ссылки формы — 404 | `193d6b1` | В брифе колонка критерия пуста; содержание шага: «повторный запуск с нуля по `v1.0`, проверка ссылок формы, сцена обрыва для видео» | `git tag -l v1.0` и `git ls-remote --tags origin` (пусто — тега нет); чистый `GIT_LFS_SKIP_SMUDGE=1 git clone` HEAD `ed4d4f3` → `docker compose up --build -d` → `curl /ready`; фронт из `origin/codex/purtov-frontend` (`git archive … frontend` во временную папку, `docker build`, контейнер в сети `proact_default` на :3000) → встроенный браузер `http://localhost:3000`, источник «Живой поток»; `WITH_ML=0 bash scripts/chaos.sh` + снимок дашборда во время обрыва; анонимный `curl` ссылок формы | `up --build -d: 17 s`, `{"status":"ready",…}`; фронт: `frontend build: 28 s`, `frontend:200`, `frontend->/api/v1/vehicles:200`; на дашборде в «Живом потоке»: `LIVE`, `07:29:07`, 14 бортов, алерт «Борт 122048 +5:19 к Каширское ш., д.45, через 10:53», карточка: q10–q90 `+0:47 → +7:00`, вероятность `91%`, причина «Накопленное отставание, уже +9:23 на ост. …», рекомендация «Держать среднюю скорость 32 км/ч»; во время обрыва плашка `DEGRADED`; chaos: `DEGRADED через 14.9 с`, `LIVE через 2.1 с`, `/health=200`; ссылки: `404 https://github.com/Lavrentiy123/proact-transport`, `404 …/docs/JURY_GUIDE.md` |
+| К1 22:00 | нужен человек (капитан) | — | «Контрольная точка №1: сквозной поток в compose, слияние в `main`» | — | не выполнялось по условию; ветка готова к слиянию |
+| К2 14:00 | нужен человек (капитан) | — | «Контрольная точка №2: фриз функционала, слияние №2» | — | не выполнялось по условию |
+| Фриз 18:00 | нужен человек (капитан) | — | «Код-фриз, тег `v1.0`» | `git ls-remote --tags origin` | тегов нет |
 
 ## 3. Тесты
 
-Заполняется в конце.
+Окружение: `.venv` на Python 3.12.13 (`uv venv -p 3.12`), зависимости `backend/requirements-dev.txt` + `requirements/ml.txt` (нужны тестам ML капитана).
+
+| Команда | Результат |
+|---|---|
+| `.venv/Scripts/python.exe -m pytest tests -W ignore` (все тесты репозитория, включая медленные) | **116 passed** in 53.54s, 0 failed, 0 skipped |
+| `.venv/Scripts/python.exe -m pytest tests/backend -W ignore` | **47 passed** in 15.13s |
+| `.venv/Scripts/python.exe -m pytest tests/ml tests/ml_core -m "not slow" -W ignore` | 64 passed, 5 deselected |
+| `.venv/Scripts/python.exe -m pytest tests/ml -m slow -W ignore` | 5 passed |
+
+Упавших нет. По ходу работы падали и были исправлены: тест приёма после введения окна «сейчас + 60 с» (пакеты теста были «из будущего» — поправлен тест), тест `nav_fields` (ошибка ожидаемого округления в тесте), тест конца данных replay (данные кончаются 07.01 в 04:24 — поправлено время в тесте). Первый прогон полного набора упал на сборе `tests/ml/test_models.py` (`No module named 'sklearn'` — в `.venv` не было зависимостей ML), после установки `requirements/ml.txt` — 116 passed. Тесты backend на ml-core (`test_tick_with_ml_core_real_day_raises_red_alert`) пропускаются, если нет `catboost` (`pytest.importorskip`); в этом окружении они выполнялись.
 
 ## 4. Отклонения от плана
 
@@ -62,12 +84,46 @@
 
 ## 6. Производительность и холодный старт
 
-Заполняется после шагов 6 и 8.
+Полная таблица с командой у каждой цифры — [`docs/perf.md`](../perf.md). Стенд: 8 ядер, 32 ГБ, Windows 11, Docker Desktop 28.5.
+
+| Цифра | Значение | Команда |
+|---|---|---|
+| Сборка образов без кэша | 121 с | `docker compose build --no-cache` |
+| `up -d` → `/ready` 200 | 12.8 с | `python scripts/measure_perf.py cold` |
+| `up -d` → первый прогноз | 15.0 с | то же |
+| `up -d` → первый алерт (старт 07:00, ×10) | 169.4 с | то же |
+| Чистый клон: `up --build -d` (кэш сборщика есть) | 19 / 24 / 17 с (шаги 6 / 11 / 13) | `bash scripts/smoke.sh`, `docker compose up --build -d` |
+| Тик p50 / p99, replay ×10, 10 мин | 13.1 / 24.9 мс, 0 перегрузок | `python scripts/measure_perf.py load --minutes 10` |
+| ml-core на батч p50 / p99 | 7.6 / 13.5 мс | то же |
+| Онлайн-MAE прогноза / бейзлайна | 85.3 / 173.7 с (9684 сверенных прогноза) | то же |
+| REST `/api/v1/vehicles` p50 / p99 | 23.2 / 47.0 мс | то же |
+| Эмулятор 1000 юнитов × 1 пакет/с | 1013.7 пакета/с, тик p99 26.9 мс, 0 ошибок CRC, backend 9.9 % CPU / 110 МБ | `EMULATOR_UNITS=1000 EMULATOR_INTERVAL_MS=1000 docker compose --profile emulator up -d` + `measure_perf.py load --minutes 3` |
+| Парсер NDTP | 110 851 кадр/с (9.02 мкс) | `python scripts/measure_perf.py codec` |
+| Обрыв потока → DEGRADED / возврат → LIVE | 14.7 / 1.8 с (шаг 7), 14.6 / 1.9 с (шаг 11), 14.9 / 2.1 с (шаг 13) | `bash scripts/chaos.sh` |
 
 ## 7. Что осталось и следующий шаг
 
-Заполняется в конце.
+Осталось:
+
+1. **Решения людей по WIP.** Шаги 4 и 5 — принять фактические цифры или сменить критерий и старт демо на 07:25 (Б1, Б2). Шаг 12 — хостинг репозитория, иначе ссылки формы не откроются (Б7).
+2. **Слияния (капитан).** `rastsov/backend` → `main`, затем фронт Пуртова. После слияния фронта раскомментировать блок `frontend` в `docker-compose.yml` (Б6) и прогнать `bash scripts/smoke.sh` + `bash scripts/chaos.sh`.
+3. **Тег `v1.0` и форма (капитан).** Ссылки в форму — на тег; текст полей 5 — `docs/form_perf_and_features.md`.
+4. **Человек:** отправить Пуртову команду запуска (Б5), записать видео со сценой обрыва (`scripts/chaos.sh` печатает хронологию), запуск с нуля на чужом ноутбуке (шаг 11 — у меня только замена).
+5. Решения по контракту и fallback-правилу (Б3, Б4).
+
+Следующий шаг: капитану — слить `rastsov/backend` в `main` (по §8.3 брифа: backend раньше фронта), мне — после слияния фронта включить сервис `frontend` в compose и повторить smoke и chaos на `main`.
 
 ## 8. Как проверить за 5 минут
 
-Заполняется в конце.
+Из корня репозитория, ветка `rastsov/backend`, Docker запущен:
+
+```bash
+docker compose up --build -d && curl http://localhost:8000/ready
+curl -X POST http://localhost:8000/api/v1/replay/control -H "Content-Type: application/json" -d '{"start_at": "2026-01-06T07:25:00"}'
+curl http://localhost:8000/api/v1/alerts
+curl http://localhost:8000/api/v1/metrics/horizon
+bash scripts/chaos.sh
+pip install -r backend/requirements-dev.txt && python -m pytest tests/backend
+```
+
+Что должно получиться: `/ready` → `{"status":"ready",…}`; через ~20 с после переноса на 07:25 — красный алерт по борту 122048 с причиной и рекомендацией; `share_lead_in_window` = 1.0; chaos: DEGRADED ≤ 15 с, LIVE за ~2 с, `/health` 200; тесты backend — 47 passed (тест с ml-core пропустится без `catboost`).
