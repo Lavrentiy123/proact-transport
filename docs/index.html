@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ПроАкт.Транспорт — документация</title>
+<style>
+  :root { --bg: #ffffff; --fg: #1d2330; --muted: #5b6475; --line: #e3e7ee; --accent: #1f6feb; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0f141b; --fg: #e6ebf2; --muted: #9aa4b5; --line: #2a323d; --accent: #58a6ff; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 28px 0 10px; }
+  p.lead { color: var(--muted); margin: 0 0 20px; }
+  ul { padding-left: 20px; margin: 0; }
+  li { margin: 6px 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { background: var(--line); padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+  .muted { color: var(--muted); }
+  footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ПроАкт.Транспорт</h1>
+  <p class="lead">Прогноз задержек городского транспорта за 10–15 минут: ml-core (CatBoost + PyTorch через ONNX),
+    backend (приём NDTP, тик прогнозов, алерты) и дашборд диспетчера в Docker.</p>
+
+  <h2>Документация по коду (pdoc)</h2>
+  <ul>
+    <li><a href="api/ml/index.html">ML</a> — пакет признаков <code>features</code>, сервис <code>ml_core</code>,
+      обучение и валидация <code>src.ml</code></li>
+    <li><a href="api/backend/index.html">Backend</a> — NDTP-сервер, replay, тик прогнозов, алерты, REST и WebSocket</li>
+  </ul>
+
+  <h2>Спецификация API (OpenAPI)</h2>
+  <ul>
+    <li><a href="api/backend/openapi.json">backend — openapi.json</a>; интерактивный Swagger после запуска:
+      <code>http://localhost:8000/docs</code></li>
+    <li><a href="api/ml/openapi.json">ml-core — openapi.json</a>; Swagger после запуска: <code>http://localhost:8001/docs</code></li>
+  </ul>
+
+  <h2>Запуск и проверка</h2>
+  <ul>
+    <li><a href="https://github.com/Lavrentiy123/proact-transport#readme">README — быстрый старт</a>
+      (<code>docker compose up --build -d</code>, дашборд на <code>http://localhost:3000</code>)</li>
+    <li><a href="https://github.com/Lavrentiy123/proact-transport/blob/main/docs/JURY_GUIDE.md">Инструкция для жюри</a>
+      — как подать поток (replay или эмулятор NDTP), где прогнозы, алерты, дашборд и метрики</li>
+    <li><a href="https://github.com/Lavrentiy123/proact-transport/blob/main/docs/architecture.md">Архитектура</a> ·
+      <a href="https://github.com/Lavrentiy123/proact-transport/blob/main/docs/perf.md">Производительность и надёжность</a></li>
+  </ul>
+
+  <h2>Модель и данные</h2>
+  <ul>
+    <li><a href="https://github.com/Lavrentiy123/proact-transport/blob/main/docs/model_card.md">Карточка модели</a>
+      — признаки, модели, метрики (official, LOBO, FWD, поток), ограничения</li>
+    <li><a href="https://github.com/Lavrentiy123/proact-transport/blob/main/docs/ANTI_LEAKAGE.md">Анти-утечка</a>
+      — правила, находки и тесты</li>
+    <li><a href="https://github.com/Lavrentiy123/proact-transport/blob/main/docs/business_effect.md">Бизнес-эффект</a>
+      — ожидание пассажиров (EWT), пассажиро-часы и рубли</li>
+  </ul>
+
+  <footer>Хакатон Московского транспорта 2026 · команда «ПроАкт.Транспорт» ·
+    <a href="https://github.com/Lavrentiy123/proact-transport">репозиторий</a></footer>
+</main>
+</body>
+</html>

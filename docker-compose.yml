@@ -47,12 +47,14 @@ services:
 
   # Источник потока по умолчанию: телеметрия data/test/traffic.csv → кадры NDTP → backend:9201.
   # Время симуляции берётся у backend, поэтому `docker compose stop replay` — это настоящий обрыв потока,
-  # а `docker compose start replay` продолжает с текущего момента.
+  # а `docker compose start replay` продолжает с текущего момента. `--loop`: по концу дня replay
+  # перематывает время backend на REPLAY_START_AT и поток идёт заново (сервис работает сутками без DEGRADED).
   replay:
     build: {context: ., dockerfile: backend/Dockerfile}   # тот же образ, что у backend (слои из кэша)
     image: proact-replay:local
     command: ["python", "-m", "backend.app.replay", "--host", "backend", "--port", "9201",
-              "--sync-url", "http://backend:8000"]
+              "--sync-url", "http://backend:8000", "--loop",
+              "--start-at", "${REPLAY_START_AT:-2026-01-06T07:00:00}"]
     depends_on:
       backend: {condition: service_healthy}
     healthcheck: {disable: true}   # HEALTHCHECK образа проверяет HTTP backend, у replay его нет

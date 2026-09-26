@@ -11,6 +11,18 @@ def test_pdoc_built():
     assert (api / "ml_core.html").exists()
 
 
+def test_pdoc_has_no_local_repo_path():
+    # pdoc печатает значения ROOT по умолчанию — путь сборщика с именем пользователя не публикуем
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("sanitize_docs", ROOT / "scripts" / "sanitize_docs.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    needles = mod.variants(ROOT)
+    for p in [*(ROOT / "docs" / "api").rglob("*.html"), *(ROOT / "docs" / "api").rglob("*.js")]:
+        s = p.read_text(encoding="utf-8")
+        assert not any(n in s for n in needles), p
+
+
 def test_model_card_has_no_todo_except_lb():
     text = (ROOT / "docs" / "model_card.md").read_text(encoding="utf-8")
     assert "TODO" not in text

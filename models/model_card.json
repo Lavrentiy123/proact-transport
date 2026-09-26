@@ -180,8 +180,16 @@
         "early": 5.5,
         "dwell": 0.6
       },
-      "per_bus_ms_p50": 10.620633753569564,
-      "per_bus_ms_p99": 97.1280491359564,
+      "share_issued_before_actual_arrival": 1.0,
+      "actual_lead_min_s": 324.0,
+      "actual_lead_p50_s": 720.0,
+      "late_events": 366,
+      "late_warned_share": 0.4808743169398907,
+      "warning_precision": 0.8262910798122066,
+      "late_p_late_mean": 0.4915698668789025,
+      "ontime_p_late_mean": 0.1871341654901836,
+      "per_bus_ms_p50": 5.1361071527935565,
+      "per_bus_ms_p99": 20.753141289585198,
       "buses": 13
     },
     "tick_60s": {
@@ -202,15 +210,26 @@
         "early": 5.3,
         "dwell": 0.7
       },
-      "per_bus_ms_p50": 7.823866672697477,
-      "per_bus_ms_p99": 118.61468750770047,
+      "share_issued_before_actual_arrival": 1.0,
+      "actual_lead_min_s": 286.0,
+      "actual_lead_p50_s": 720.0,
+      "late_events": 1843,
+      "late_warned_share": 0.4655453065653825,
+      "warning_precision": 0.7959183673469388,
+      "late_p_late_mean": 0.4847126333085714,
+      "ontime_p_late_mean": 0.18994251711004922,
+      "per_bus_ms_p50": 5.868822907359572,
+      "per_bus_ms_p99": 58.20682249141097,
       "buses": 13
     },
     "out_of_sample_lobo": {
       "n_points": 353,
       "online_mae_model_s": 83.83590537553209,
       "online_mae_baseline_s": 128.53257790368272,
-      "online_mae_zero_s": 103.33711048158641
+      "online_mae_zero_s": 103.33711048158641,
+      "late_events": 86,
+      "late_warned_share": 0.29069767441860467,
+      "warning_precision": 0.7352941176470589
     }
   },
   "stream_submission": {
@@ -232,5 +251,45 @@
       "w_sched": 0.5,
       "w_mlp": 0.3
     }
+  },
+  "detector": {
+    "coverage": 0.843,
+    "within30": 0.788,
+    "median_err_s": -4.0,
+    "mae_s": 26.6,
+    "n_stops": 15687,
+    "source": "tests/ml/test_stop_detector.py",
+    "version": "v2 (ML-T9)",
+    "v1": {
+      "coverage": 0.842,
+      "within30": 0.774,
+      "median_err_s": -4.0,
+      "mae_s": 36.3
+    }
+  },
+  "latency": {
+    "predict_30_ms_p50": 34.5,
+    "docker_cold_start_to_ready_s": 14,
+    "docker_image_mb": 1083,
+    "source": "tests/ml_core/test_api.py (TestClient, 30 строк, 7 повторов; модели v2), scripts/smoke_ml_core.sh (холодный старт и образ — замер 26.09)",
+    "predict_30_ms_p50_catboost_only": 9.7,
+    "onnx_mlp_batch30_ms_p50": 0.8,
+    "note": "ансамбль (CatBoost 0.2 + CatBoost-sched 0.5 + ONNX MLP 0.3 + квантили + окклюзия 5 групп) на загруженном ноутбуке i5-10210U",
+    "predict_30_ms_best": 25.1
+  },
+  "stream_live": {
+    "tick_ms_p50": 61.01,
+    "tick_ms_p99": 224.38,
+    "infer_ms_p50": 27.89,
+    "infer_ms_p99": 123.72,
+    "tick_overruns": 1.0,
+    "crc_errors": 0.0,
+    "online_mae_model_s": 88.77,
+    "online_mae_baseline_s": 150.57,
+    "share_lead_in_window": 1.0,
+    "resolved_total": 6507.0,
+    "setup": "docker compose, replay дня 06.01 ×10 по NDTP, 8 мин, ноутбук i5-10210U",
+    "model_version": "m_online-v2-ens-189b8fe",
+    "source": "reports/logs/perf_load_after_T5_ensemble.jsonl"
   }
 }

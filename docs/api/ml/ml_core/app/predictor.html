@@ -343,7 +343,7 @@
                 <section id="ROOT">
                     <div class="attr variable">
             <span class="name">ROOT</span>        =
-<span class="default_value">WindowsPath(&#39;C:/Users/Lavrentiy/Desktop/Хакатоны/03_Московский_Транспорт&#39;)</span>
+<span class="default_value">WindowsPath(&#39;D:/proact-transport&#39;)</span>
 
         
     </div>
@@ -579,8 +579,11 @@
 
             <div class="docstring"><p>Держит модели в памяти и считает ответы <code>/v1/predict</code>.</p>
 
-<p>Args:
-    models_dir: папка с <code>feature_config.json</code>, <code>model_card.json</code> и файлами моделей.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>models_dir:</strong>  папка с <code>feature_config.json</code>, <code>model_card.json</code> и файлами моделей.</li>
+</ul>
 </div>
 
 
@@ -932,12 +935,18 @@
 
             <div class="docstring"><p>Прогноз для батча строк <code>{"tr_id": int, "features": {name: value | None}}</code>.</p>
 
-<p>Args:
-    rows: строки запроса; отсутствующий признак → NaN, лишние игнорируются.
-    model: <code>online</code> — m_online + квантили + причины; <code>sched</code> — fallback по расписанию.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>(results, n_extra)</code> — словари полей <code>PredictResult</code> и число лишних признаков во входе.</p>
+<ul>
+<li><strong>rows:</strong>  строки запроса; отсутствующий признак → NaN, лишние игнорируются.</li>
+<li><strong>model:</strong>  <code>online</code> — m_online + квантили + причины; <code>sched</code> — fallback по расписанию.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>(results, n_extra)</code> — словари полей <code>PredictResult</code> и число лишних признаков во входе.</p>
+</blockquote>
 </div>
 
 

@@ -1,6 +1,6 @@
 import { ArrowUpRight, BellRing, ChevronRight, TriangleAlert } from 'lucide-react'
 import type { Alert, VehicleState } from '../types/contracts'
-import { formatCountdown, formatDelay } from '../utils/format'
+import { formatCountdown, formatDelay, stopLabel } from '../utils/format'
 import { secondsUntil } from '../utils/time'
 
 interface Props {
@@ -46,7 +46,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, simTime, onS
                   <span className="alert-vehicle">Борт {alert.tr_id}</span>
                   <ChevronRight size={16} className="alert-chevron" />
                 </div>
-                <div className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)} <small>к {alert.forecast.target_stop_name}</small></div>
+                <div className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)} <small>к {stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}</small></div>
                 <div className="alert-item-bottom"><span>{alert.forecast.cause.text}</span><span>через {formatCountdown(secondsUntil(alert.forecast.target_time_plan, simTime))}</span></div>
                 {vehicle?.stale && <span className="stale-tag">Данные устарели</span>}
               </button>

@@ -1,6 +1,6 @@
-import { Activity, BusFront, Clock3, Pause, Play, RotateCcw, Wifi, WifiOff } from 'lucide-react'
+import { Activity, BusFront, Clock3, Pause, Play, RotateCcw, Target, Wifi, WifiOff } from 'lucide-react'
 import type { Scenario } from '../data/scenarios'
-import type { WsMessage } from '../types/contracts'
+import type { HorizonMetrics, WsMessage } from '../types/contracts'
 import { displayClock, displayDay } from '../utils/time'
 
 interface Props {
@@ -13,11 +13,16 @@ interface Props {
   onTogglePlayback: () => void
   onRestart: () => void
   onSourceChange: (source: 'demo' | 'live') => void
+  /** Горизонт и онлайн-MAE потока (только живой режим). */
+  horizon?: HorizonMetrics | null
 }
+
+/** Онлайн-ошибка на первых десятках сверенных прогнозов шумная (старт дня, перемотка) — показываем с этого числа. */
+const MIN_RESOLVED = 200
 
 export default function StatusBar({
   snapshot, connected, source, scenario, playing, onScenarioChange,
-  onTogglePlayback, onRestart, onSourceChange,
+  onTogglePlayback, onRestart, onSourceChange, horizon,
 }: Props) {
   const vehicles = snapshot.vehicles ?? []
   const alerts = (snapshot.alerts ?? []).filter((alert) => alert.status === 'active')
@@ -36,7 +41,8 @@ export default function StatusBar({
           </div>
         </div>
         <div className="topbar-right">
-          <div className={`mode-pill ${connected ? 'is-connected' : 'is-disconnected'}`}>
+          <div className={`mode-pill ${!connected ? 'is-disconnected' : mode === 'DEGRADED' ? 'is-degraded' : 'is-connected'}`}
+            title={mode === 'DEGRADED' ? 'Пакетов NDTP нет дольше 15 с: прогноз по расписанию' : undefined}>
             {connected ? <Wifi size={15} /> : <WifiOff size={15} />}
             <span>{connected ? mode : 'НЕТ СВЯЗИ'}</span>
           </div>
@@ -56,6 +62,13 @@ export default function StatusBar({
           <div className="summary-metric metric-red"><span className="metric-dot" /><span><strong>{red}</strong><small>критично</small></span></div>
           <div className="summary-metric metric-yellow"><span className="metric-dot" /><span><strong>{yellow}</strong><small>внимание</small></span></div>
           <div className="summary-metric"><Activity size={19} /><span><strong>{alerts.length}</strong><small>алертов</small></span></div>
+          {source === 'live' && horizon && <div className="summary-metric metric-horizon" title={`Сверено с фактическим прибытием: ${horizon.resolved_total} из ${horizon.forecasts_total}`}>
+            <Target size={19} /><span><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'прогнозов за 10–15 мин' : 'прогнозов пока нет'}</small></span></div>}
+          {source === 'live' && horizon && horizon.forecasts_total > 0 && (horizon.online_mae_model_s != null && horizon.resolved_total >= MIN_RESOLVED
+            ? <div className="summary-metric metric-horizon" title={`Онлайн-MAE по журналу прогнозов потока: ${horizon.resolved_total} прогнозов сверены с фактическим прибытием`}>
+              <span><strong>{Math.round(horizon.online_mae_model_s)} с</strong><small>ошибка прогноза{horizon.online_mae_baseline_s != null ? ` · бейзлайн ${Math.round(horizon.online_mae_baseline_s)} с` : ''}</small></span></div>
+            : <div className="summary-metric metric-horizon" title="Ошибку показываем, когда с фактом сверено достаточно прогнозов: первые минуты после старта или перемотки шумные">
+              <span><strong>—</strong><small>ошибка: сверено {horizon.resolved_total} из {MIN_RESOLVED}</small></span></div>)}
         </div>
       </section>
 

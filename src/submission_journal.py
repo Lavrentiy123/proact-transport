@@ -20,11 +20,20 @@ JOURNAL = SUB_DIR / "journal.csv"
 JOURNAL_COLUMNS = ["created_at", "file", "git_hash", "model", "features_version", "test_mae", "lobo_mae", "lb_score"]
 
 
-def git_hash_short() -> str:
-    """Короткий хеш текущего коммита (``unknown``, если git недоступен)."""
+def git_hash_short(mark_dirty: bool = False) -> str:
+    """Короткий хеш текущего коммита (``unknown``, если git недоступен).
+
+    Args:
+        mark_dirty: добавить ``-dirty``, если в рабочем дереве есть незакоммиченные изменения
+            (для журнала сабмитов: модели обычно коммитятся после генерации сабмита).
+    """
     try:
-        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True,
-                              text=True, check=True).stdout.strip()
+        h = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True,
+                           text=True, check=True).stdout.strip()
+        if mark_dirty and subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True,
+                                         text=True, check=True).stdout.strip():
+            h += "-dirty"
+        return h
     except Exception:
         return "unknown"
 
@@ -54,7 +63,7 @@ def save_submission(df: pd.DataFrame, tag: str, model: str, features_version: st
         w = csv.writer(fh, lineterminator="\n")
         if new:
             w.writerow(JOURNAL_COLUMNS)
-        w.writerow([now.isoformat(timespec="seconds"), path.relative_to(ROOT).as_posix(), git_hash_short(), model,
+        w.writerow([now.isoformat(timespec="seconds"), path.relative_to(ROOT).as_posix(), git_hash_short(mark_dirty=True), model,
                     features_version, "" if test_mae is None else f"{test_mae:.2f}",
                     "" if lobo_mae is None else f"{lobo_mae:.2f}", ""])
     return path

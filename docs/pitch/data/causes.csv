@@ -1,7 +1,7 @@
 cause_code,cause_ru,share_pct
-accumulated,накопленное отставание,52.1
-hard_segment,сложный участок,23.2
+accumulated,накопленное отставание,53.0
+hard_segment,сложный участок,23.5
 low_data,мало данных,9.2
-congestion,затор на перегоне,9.0
-early,опережение,5.0
-dwell,долгая посадка,1.5
+congestion,затор на перегоне,8.2
+early,опережение,5.3
+dwell,долгая посадка,0.7

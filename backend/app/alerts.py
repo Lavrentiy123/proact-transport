@@ -101,14 +101,23 @@ def build_cause(code: str, confidence: float, feats: dict, derived: dict, last_s
                  confidence=float(min(1.0, max(0.0, confidence))))
 
 
+def stop_label(name: str | None, plan=None) -> str:
+    """«ост. «Адрес»». У 17,5 % строк расписания датасета адреса нет, а ``stop_id`` — id строки расписания,
+    а не номер остановки, поэтому тогда «ост. без адреса (план ЧЧ:ММ)»."""
+    name = (name or "").strip()
+    if name:
+        return f"ост. «{name}»"
+    return f"ост. без адреса (план {plan:%H:%M})" if plan is not None else "ост. без адреса"
+
+
 def recommend(fc: Forecast, feats: dict, opening_or_closing: bool) -> Recommendation | None:
     """Рекомендация по правилам контракта (не ML)."""
     remain_s = fc.lead_s
-    name = fc.target_stop_name or str(fc.target_stop_id)
+    stop = stop_label(fc.target_stop_name, fc.target_time_plan)
     if fc.risk == Risk.red and opening_or_closing:
         return Recommendation(action="reserve", stop_id=fc.target_stop_id,
                               text=f"Первый/последний рейс, прогноз {fmt_delay(fc.delay_pred_s)}: рассмотреть выпуск "
-                                   f"резервного ТС до ост. «{name}»")
+                                   f"резервного ТС до {stop}")
     if fc.delay_pred_s >= YELLOW_S:
         route = _f(feats, "route_dist_m") or _f(feats, "dist_to_target_m")
         if route is None or remain_s <= 0:
@@ -116,14 +125,14 @@ def recommend(fc: Forecast, feats: dict, opening_or_closing: bool) -> Recommenda
         v = route / remain_s * 3.6
         if v > MAX_ADVICE_KMH:
             return Recommendation(action="speed_advice", stop_id=fc.target_stop_id, target_speed_kmh=round(v, 1),
-                                  text=f"Нагнать скоростью нельзя (нужно {v:.0f} км/ч до ост. «{name}»): "
+                                  text=f"Нагнать скоростью нельзя (нужно {v:.0f} км/ч до {stop}): "
                                        f"предупредить пассажиров, рассмотреть резерв")
         return Recommendation(action="speed_advice", stop_id=fc.target_stop_id, target_speed_kmh=round(v, 1),
-                              text=f"Держать среднюю скорость {v:.0f} км/ч до ост. «{name}»")
+                              text=f"Держать среднюю скорость {v:.0f} км/ч до {stop}")
     if fc.delay_pred_s < EARLY_S:
         hold = int(min(120, max(30, round(-fc.delay_pred_s))))
         return Recommendation(action="hold", stop_id=fc.target_stop_id, hold_s=hold,
-                              text=f"Межрейсовая стоянка {hold} с до ост. «{name}» (опережение "
+                              text=f"Межрейсовая стоянка {hold} с до {stop} (опережение "
                                    f"{fmt_delay(fc.delay_pred_s)})")
     return None
 
@@ -134,8 +143,11 @@ def priority_of(fc: Forecast, opening_or_closing: bool) -> int:
 
 
 def title_of(tr_id: int, fc: Forecast) -> str:
-    return (f"Борт {tr_id}: {fmt_delay(fc.delay_pred_s)} к ост. «{fc.target_stop_name}» "
+    return (f"Борт {tr_id}: {fmt_delay(fc.delay_pred_s)} к {stop_label(fc.target_stop_name, fc.target_time_plan)} "
             f"через {max(1, round(fc.lead_s / 60))} мин")
+
+
+EVENT_GRACE_S = 300.0   # после ожидаемого прибытия алерт без прогноза снимается через 5 мин
 
 
 class AlertBook:
@@ -156,8 +168,24 @@ class AlertBook:
 
     def update(self, tr_id: int, fc: Forecast | None, rec: Recommendation | None, opening_or_closing: bool,
                now: datetime) -> Alert | None:
-        """Обновляет состояние алерта борта по прогнозу тика; возвращает активный алерт или ``None``."""
-        calm = fc is None or fc.delay_pred_s < CLEAR_S
+        """Обновляет состояние алерта борта по прогнозу тика; возвращает активный алерт или ``None``.
+
+        Тик без прогноза (в окне (T+10, T+15] нет плановой остановки) — это не «успокоение»: окно между
+        остановками бывает пустым несколько тиков, и раньше алерт снимался и поднимался заново, а решение
+        диспетчера сбрасывалось. Теперь без прогноза алерт держится, пока не пройдёт событие, о котором он
+        предупреждал (плановое время + прогноз задержки + ``EVENT_GRACE_S``).
+        """
+        if fc is None:
+            a = self.active.get(tr_id)
+            if a is not None:
+                event_s = to_epoch_s(a.forecast.target_time_plan) + max(a.forecast.delay_pred_s, 0.0) + EVENT_GRACE_S
+                if to_epoch_s(now) >= event_s:
+                    self.active.pop(tr_id)
+                    a.status = "resolved"
+                    self.closed.append(a)
+                    return None
+            return a
+        calm = fc.delay_pred_s < CLEAR_S
         self._calm[tr_id] = self._calm.get(tr_id, 0) + 1 if calm else 0
         if self._calm[tr_id] >= CLEAR_TICKS:
             self._suppressed.discard(tr_id)
@@ -167,8 +195,6 @@ class AlertBook:
                 self.closed.append(a)
             return None
         a = self.active.get(tr_id)
-        if fc is None:
-            return a
         if a is None:
             if fc.risk != Risk.red or tr_id in self._suppressed:
                 return None

@@ -13,3 +13,9 @@ export function formatCountdown(seconds: number): string {
 export function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }
+
+/** Название остановки. У 17,5 % строк расписания датасета нет адреса, а stop_id — id строки расписания,
+ * а не номер остановки, поэтому номер не показываем. */
+export function stopLabel(name: string | null | undefined, _stopId?: number | null): string {
+  return (name ?? '').trim() || 'ост. без адреса'
+}
