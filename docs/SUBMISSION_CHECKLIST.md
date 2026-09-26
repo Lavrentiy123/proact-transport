@@ -7,10 +7,10 @@
 | Поле формы | Что вставить | Где взять |
 |---|---|---|
 | 1. `submission.csv` (раздел Data Science) | лучший по LB сабмит; первым загружать основной `submissions/sub_20260926_1522_mds_v1.csv` | `submissions/journal.csv` — колонки `file` и `lb_score` |
-| 2. Ссылка на репозиторий | https://github.com/Lavrentiy123/proact-transport | тег `v1.0` после код-фриза |
-| 3. Инструкция для жюри | ссылка на раздел README «Как запустить и проверить» (якорь `#для-жюри`) | README пишет Расцов (П7) |
-| 4. Документация | pdoc ML: `docs/api/ml/index.html` (в репозитории); Swagger: `http://localhost:8000/docs` (backend) и `http://localhost:8001/docs` (ml-core) после `docker compose up` | `docs/api/ml/`, `ml_core/app/main.py` |
-| 5. Производительность и доп. возможности | текст от Расцова (П6, П8) + ML-цифры из `docs/model_card.md` (латентность, горизонт) | файл Расцова docs/perf.md (появится в его ветке), `docs/model_card.md` |
+| 2. Ссылка на репозиторий | https://github.com/Lavrentiy123/proact-transport | тег `v1.0` после код-фриза; **репозиторий сейчас приватный — открыть доступ жюри до сдачи** (иначе все ссылки 404) |
+| 3. Инструкция для жюри | `docs/JURY_GUIDE.md` (запуск одной командой, подача потока, где алерты и метрики) | Расцов (П7) |
+| 4. Документация | pdoc: `docs/api/ml/index.html` (features, ml_core) и `docs/api/backend/index.html` (backend); Swagger: `http://localhost:8000/docs` (backend) и `http://localhost:8001/docs` (ml-core) после `docker compose up` | `docs/api/ml/`, `docs/api/backend/`, `docs/architecture.md` |
+| 5. Производительность и доп. возможности | готовый текст `docs/form_perf_and_features.md` (П6, П8) + ML-цифры из `docs/model_card.md` (латентность, горизонт) | `docs/perf.md`, `docs/form_perf_and_features.md`, `docs/model_card.md` |
 | Видео-питч 3 мин | ссылка на видео (монтаж — Пуртов, озвучка — Лаврентий) | уточнить в капитанском чате, обязательно ли до 23:59 27.09 |
 
 ## 2. Порядок загрузки сабмитов
