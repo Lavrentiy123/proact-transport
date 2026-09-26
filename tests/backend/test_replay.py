@@ -81,3 +81,19 @@ def test_preroll_sends_last_minutes_first(rows):
     ts = [nav.ts for fr in frames for nav in fr.navs]
     assert n_pre > 0 and len(ts) >= n_pre
     assert max(ts) <= t0 + 60          # будущего нет: разгон — только прошлое
+
+
+def test_end_of_data_idles_instead_of_exit(rows):
+    import time as _t
+
+    async def go():
+        srv = await asyncio.start_server(lambda r, w: None, "127.0.0.1", 0)
+        port = srv.sockets[0].getsockname()[1]
+        client = ReplayClient(rows, "127.0.0.1", port, SimClock("2026-01-07T05:00:00", 10.0), preroll_s=0.0)
+        t0 = _t.time()
+        await client.run(duration_wall_s=0.6)
+        srv.close()
+        return client, _t.time() - t0
+
+    client, took = asyncio.run(go())
+    assert client.ended and took >= 0.55     # данные кончились, но цикл не вышел раньше срока

@@ -32,6 +32,7 @@ class SystemStatusEx(SystemStatus):
     ndtp_garbage_bytes_total: int | None = None
     unknown_units: int | None = Field(None, description="терминалов без расписания (только на карте)")
     ndtp_dropped_out_of_window: int | None = Field(None, description="пакетов вне окна «сейчас − 40 мин … + 60 с»")
+    emulator: str | None = Field(None, description="управление эмулятором: disabled | unreachable | configured:…")
     predictor: str | None = Field(None, description="чем считается прогноз: ml-core | fallback-rule | none")
 
 

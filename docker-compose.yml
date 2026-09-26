@@ -28,9 +28,12 @@ services:
       NDTP_PORT: "9201"
       REPLAY_START_AT: ${REPLAY_START_AT:-2026-01-06T07:00:00}
       REPLAY_SPEED: ${REPLAY_SPEED:-10}
-      EMULATOR_API: ${EMULATOR_API:-}
+      # Эмулятор в профиле emulator: backend сам шлёт ему POST /api/config (без профиля — тихо ждёт).
+      EMULATOR_API: ${EMULATOR_API:-http://ndtp-emulator:18080}
       EMULATOR_TARGET_HOST: backend
       EMULATOR_MODE: ${EMULATOR_MODE:-auto}
+      EMULATOR_UNITS: ${EMULATOR_UNITS:-3}
+      EMULATOR_INTERVAL_MS: ${EMULATOR_INTERVAL_MS:-5000}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
       - "${NDTP_PORT:-9201}:9201"

@@ -36,7 +36,20 @@
 
 ## Нагрузка официальным эмулятором
 
-Замер — шаг 9 плана (1000 юнитов эмулятора); таблица дописывается после него.
+Команда: `EMULATOR_UNITS=1000 EMULATOR_INTERVAL_MS=1000 docker compose --profile emulator up -d` (backend сам шлёт эмулятору конфиг на 1000 юнитов `autoGenerate`, 1 пакет/с каждый; replay ×10 продолжает идти), через 40 с — `python scripts/measure_perf.py load --minutes 3` и `docker stats --no-stream`.
+
+| Цифра | Значение |
+|---|---|
+| TCP-сессий NDTP | 1016 (1000 эмулятор + 16 replay) |
+| Пакетов в секунду | 1013.7 (разница `ndtp_packets_total` за 180 с) |
+| Ошибок CRC | 0 |
+| Тик p50 / p99 | 12.5 / 26.9 мс; перегрузок тика 0 |
+| ml-core на батч p50 / p99 | 7.2 / 17.9 мс |
+| `GET /api/v1/vehicles` p50 / p99 (1016 бортов в ответе) | 35.0 / 112.1 мс |
+| Снапшот WebSocket | 228 476 байт, период 0.84 с |
+| CPU / память контейнеров | backend 9.9 % / 110 МБ; эмулятор 18.1 % / 817 МБ; ml-core 4.3 % / 97 МБ; replay 1.1 % / 66 МБ |
+
+Режим реальных треков через официальный эмулятор: `EMULATOR_MODE=trajectories REPLAY_SPEED=2 docker compose --profile emulator up -d --scale replay=0` — через 60 с эмулятор настроен на 15 терминалов датасета (формат `"fields"`), прогноз есть у 9 бортов (`quality=full`, ml-core), 0 ошибок CRC.
 
 ## Надёжность (chaos-тест)
 
