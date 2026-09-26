@@ -28,7 +28,8 @@ class Settings:
     replay_inprocess: bool = False       # запустить replay внутри backend (локально без compose)
     replay_preroll_min: float = 30.0
     accept_past_s: float = 2400.0        # пакеты старше «сейчас − 40 мин» отбрасываются
-    accept_future_s: float = 60.0        # и новее «сейчас + 60 с» — тоже (в потоке нет будущего)
+    accept_future_s: float = 30.0        # и новее «сейчас + 30 с»: допуск только на округление меток эмулятора
+                                         # до секунды (× скорость) и дрейф часов replay; признаки берут t ≤ T
     tick_s: float = 5.0                 # период тика, секунды времени симуляции
     degraded_after_s: float = 15.0       # нет пакетов дольше — режим DEGRADED (секунды реального времени)
     stale_after_s: float = 30.0          # борт молчит дольше — stale (секунды симуляции)

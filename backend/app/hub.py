@@ -31,9 +31,19 @@ class SystemStatusEx(SystemStatus):
     ndtp_crc_errors_total: int | None = None
     ndtp_garbage_bytes_total: int | None = None
     unknown_units: int | None = Field(None, description="терминалов без расписания (только на карте)")
-    ndtp_dropped_out_of_window: int | None = Field(None, description="пакетов вне окна «сейчас − 40 мин … + 60 с»")
+    ndtp_dropped_out_of_window: int | None = Field(None, description="пакетов вне окна «сейчас − 40 мин … + 30 с»")
     emulator: str | None = Field(None, description="управление эмулятором: disabled | unreachable | configured:…")
     predictor: str | None = Field(None, description="чем считается прогноз: ml-core | fallback-rule | none")
+
+
+class ActionResponseEx(ActionResponse):
+    """``ActionResponse`` + необязательный флаг: ответ водителя в демо эмулирован (не пришёл по NDTP)."""
+
+    driver_reply_emulated: bool | None = Field(None, description="true — ответ водителя эмулирован правилом (демо)")
+
+
+class AlertNotActive(Exception):
+    """Решение по алерту, который уже не активен (снят, применён или отклонён)."""
 
 
 class ReplayControl(BaseModel):
@@ -84,6 +94,11 @@ class Hub:
 
     def journal_csv(self) -> str | None:
         """Журнал прогнозов в CSV (``None`` — журнала нет)."""
+        snap = self.journal_snapshot()
+        return snap() if snap is not None else None
+
+    def journal_snapshot(self):
+        """Снимок журнала в event loop → функция без аргументов, которая соберёт CSV (можно вызвать в потоке)."""
         return None
 
 

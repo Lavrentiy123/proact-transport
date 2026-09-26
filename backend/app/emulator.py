@@ -57,6 +57,7 @@ class EmulatorCtl:
         self.state = "disabled" if not self.api else "starting"
         self.posts = 0
         self.errors = 0
+        self.watchdog_s = WATCHDOG_S
         self._rows = None
         self._task: asyncio.Task | None = None
         self._client: httpx.AsyncClient | None = None
@@ -94,6 +95,9 @@ class EmulatorCtl:
 
     async def start(self) -> None:
         if self.enabled:
+            if self.mode == "trajectories" and self._rows is None:   # чтение CSV — вне event loop
+                from .replay import load_rows
+                self._rows = await asyncio.to_thread(load_rows, self.hub.s.traffic_file)
             self._client = httpx.AsyncClient(base_url=self.api, timeout=5.0)
             self._task = asyncio.create_task(self._run(), name="emulator-ctl")
 
@@ -137,7 +141,7 @@ class EmulatorCtl:
                 await asyncio.sleep(max(1.0, wall))
                 continue
             now = loop.time()
-            if now - last_check >= WATCHDOG_S or self.state in ("starting", "unreachable"):
+            if now - last_check >= self.watchdog_s or self.state in ("starting", "unreachable"):
                 n = await self._configured_units()
                 if n is None:
                     if self.state != "unreachable":
@@ -150,4 +154,4 @@ class EmulatorCtl:
                              self.mode)
                     await self.post(self.auto_config())
                 last_check = now
-            await asyncio.sleep(2.0 if self.state == "unreachable" else WATCHDOG_S)
+            await asyncio.sleep(min(2.0, self.watchdog_s) if self.state == "unreachable" else self.watchdog_s)
