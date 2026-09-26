@@ -1,5 +1,5 @@
 # ML-T7a: Слияние №1 и сквозная проверка — ✅
-**Время:** 45 мин (из них ~15 мин — сборка образов)   **Коммит:** merge `56813e5` (backend), `7065504` (frontend) + `[ML-T7a]` (см. `git log`)   **Пуш:** см. ML-FINAL
+**Время:** 45 мин (из них ~15 мин — сборка образов)   **Коммит:** merge 56813e5 (backend), 7065504 (frontend), 83836e1 (правки и отчёт)   **Пуш:** да
 ## Сделано
 - `git fetch`: `origin/rastsov/backend` — 17 новых коммитов (BE-1…BE-13: NDTP, replay, тик, алерты, WS, compose, DEGRADED, `/metrics`, `/actions`, pdoc, JURY_GUIDE); `origin/purtov/frontend` — 0, работа Пуртова лежит в **`origin/codex/purtov-frontend`** (3 коммита: дашборд, Dockerfile с nginx, аудит) — слита она.
 - `git merge --no-ff` backend, затем frontend — **конфликтов нет** (файлы не пересекаются).
