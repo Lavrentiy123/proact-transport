@@ -43,7 +43,7 @@ def test_ready_and_listening(live):
 
 def test_ingest_known_unknown_and_bad_crc(live):
     client, hub = live
-    t0 = int(to_epoch_s("2026-01-06 06:59:00"))
+    t0 = int(to_epoch_s("2026-01-06 06:55:00"))   # все пакеты — в прошлом относительно часов (07:00)
     with socket.create_connection(("127.0.0.1", hub.server.port)) as s1, \
             socket.create_connection(("127.0.0.1", hub.server.port)) as s2:
         s1.sendall(encode_handshake(KNOWN_UNIT, 1))
@@ -76,3 +76,16 @@ def test_garbage_connection_does_not_break_server(live):
         s.sendall(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n" + bytes(range(256)))
     assert _wait(lambda: hub.server.stats.garbage_bytes > 0)
     assert client.get("/ready").status_code == 200
+
+
+def test_future_and_ancient_packets_are_dropped(live):
+    client, hub = live
+    now = hub.clock.now_s()
+    before = hub.dropped_out_of_window
+    with socket.create_connection(("127.0.0.1", hub.server.port)) as s:
+        s.sendall(encode_handshake(KNOWN_UNIT, 1))
+        s.sendall(encode_nav(KNOWN_UNIT, 2, int(now + 600), 55.0, 37.0, 10, 0, True))    # на 10 мин в будущем
+        s.sendall(encode_nav(KNOWN_UNIT, 3, int(now - 3 * 3600), 55.0, 37.0, 10, 0, True))  # 3 ч назад
+        assert _wait(lambda: hub.dropped_out_of_window >= before + 2)
+    v = {x["tr_id"]: x for x in client.get("/api/v1/vehicles").json()}[KNOWN_TR]
+    assert v["lat"] != 55.0

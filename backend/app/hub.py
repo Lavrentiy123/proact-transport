@@ -31,6 +31,7 @@ class SystemStatusEx(SystemStatus):
     ndtp_crc_errors_total: int | None = None
     ndtp_garbage_bytes_total: int | None = None
     unknown_units: int | None = Field(None, description="терминалов без расписания (только на карте)")
+    ndtp_dropped_out_of_window: int | None = Field(None, description="пакетов вне окна «сейчас − 40 мин … + 60 с»")
     predictor: str | None = Field(None, description="чем считается прогноз: ml-core | fallback-rule | none")
 
 
