@@ -73,8 +73,14 @@ class Ticker:
             self.journal.resolve(tr, stop, t_arr)
 
     def ml_status(self) -> tuple[bool, str, str]:
-        """``(ml_core_ok, model_version, чем считается прогноз)`` для ``SystemStatus``."""
-        return bool(self.ml.enabled and self.ml.last_ok), self.last_version, self.last_source
+        """``(ml_core_ok, model_version, чем считается прогноз)`` для ``SystemStatus``.
+
+        До первого вызова (поток ещё не пришёл, у бортов нет остановки в окне, только юниты эмулятора без
+        расписания) ml-core не считается упавшим: его готовность compose проверяет healthcheck'ом.
+        """
+        ml = self.ml
+        ok = ml.enabled and ml.state != "open" and (ml.last_ok or ml.calls == 0)
+        return bool(ok), self.last_version, self.last_source
 
     # ---------------- цикл ----------------
     async def _run(self) -> None:
