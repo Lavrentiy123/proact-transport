@@ -70,9 +70,12 @@ def rows_accuracy(card: dict) -> list[tuple[str, str, str]]:
     if blend:
         rows.append((f"Поток: ансамбль ({ensemble_label(card)}), LOBO", fmt(blend["lobo_mae_blend"]),
                      fmt(score_of(blend["lobo_mae_blend"]), 2)))
+    oos = card.get("online_eval", {}).get("out_of_sample_lobo", {})
+    if oos:
+        rows.append(("Поток: онлайн-прогноз для незнакомого борта (LOBO, точки test)", fmt(oos["online_mae_model_s"]), "—"))
+        rows.append(("Поток: бейзлайн «восстановленный cur_dev» на тех же точках", fmt(oos["online_mae_baseline_s"]), "—"))
     if oe:
-        rows.append(("Поток: онлайн-MAE на replay дня test (тик 5 мин)", fmt(oe["online_mae_model_s"]), "—"))
-        rows.append(("Поток: онлайн-бейзлайн «восстановленный cur_dev»", fmt(oe["online_mae_baseline_s"]), "—"))
+        rows.append(("Поток: replay дня test, тик 5 мин (в выборке — проверка потока)", fmt(oe["online_mae_model_s"]), "—"))
     return rows
 
 
@@ -109,9 +112,9 @@ def render(card: dict) -> str:
         "|---|---|---|",
     ] + [f"| {a} | {b} | {c} |" for a, b, c in acc] + [
         "",
-        f"- Шкала платформы: скор = (108.1 − MAE) / 48.1; **0.70 = MAE 74.2 с** (максимум баллов критерия).",
+        "- Шкала платформы: скор = (108.1 − MAE) / 48.1; **0.70 = MAE 74.2 с** (максимум баллов критерия).",
         f"- m_ds: {ds['iterations']} деревьев × 5 сидов, 34 признака; вариант сабмита — "
-        f"{'с' if ds['submission_variant'] == 'tod' else 'без'} признаков времени суток.",
+        f"{'с признаками' if ds['submission_variant'] == 'tod' else 'без признаков'} времени суток.",
         "- Шум оценки на 151 точке validate: SE(MAE) ≈ 8.9 с — поэтому модель выбираем по LOBO, а не по LB.",
         "",
         "**График:** `docs/pitch/data/accuracy.csv` — столбцы MAE по оценкам + линия 74.2 с.",
@@ -119,7 +122,9 @@ def render(card: dict) -> str:
         "**Заметки докладчика (30 с):** «Бейзлайн "
         f"{fmt(card['baselines']['official_cur_dev'])} секунды, наша модель — {fmt(ds['official_mae'])} на тесте организаторов "
         f"и {fmt(ds['lobo_mae'])} при честной проверке на незнакомом автобусе. Порог максимального балла — 74.2 секунды: "
-        "мы проходим его даже в честной оценке.»",
+        + ("мы проходим его и на сайте, и на незнакомом автобусе.»" if ds["lobo_mae"] <= 74.2 else
+           "на сайте (тот же день и те же борта) мы проходим его с запасом, а на незнакомом автобусе держимся у самой "
+           "границы — это честная цена переноса на новый борт.»"),
         "",
         "## Слайд 3. Горизонт и причины",
         "",
@@ -129,16 +134,22 @@ def render(card: dict) -> str:
             f"- **{100 * oe['share_lead_in_window']:.0f} % прогнозов** выданы за 10–15 минут до прибытия "
             f"({oe['forecasts_total']} прогнозов на replay дня test, тик 60 с): прогноз строится только для остановки "
             "в окне (T+10, T+15].",
-            f"- Онлайн-MAE {fmt(oe['online_mae_model_s'])} с против {fmt(oe['online_mae_baseline_s'])} с у бейзлайна "
-            "«восстановленное отклонение».",
-            f"- Факт попадает в интервал q10–q90 в {100 * oe['interval_coverage']:.0f} % случаев.",
+        ]
+        oos = card.get("online_eval", {}).get("out_of_sample_lobo", {})
+        if oos:
+            lines.append(f"- Онлайн-прогноз для незнакомого борта: MAE {fmt(oos['online_mae_model_s'])} с против "
+                         f"{fmt(oos['online_mae_baseline_s'])} с у бейзлайна «восстановленное отклонение».")
+        cal = card["m_online"].get("interval_q10_q90_coverage_lobo_calibrated")
+        lines += [
+            (f"- Интервал q10–q90 на незнакомом борту накрывает факт в {100 * cal:.0f} % случаев (калибровка по LOBO)."
+             if cal else f"- Факт попадает в интервал q10–q90 в {100 * oe['interval_coverage']:.0f} % случаев."),
             "- Причины прогнозов: " + ", ".join(f"{CAUSE_RU.get(k, k)} — {v:.0f} %" for k, v in
                                                sorted(causes.items(), key=lambda kv: -kv[1])) + ".",
         ]
     else:
         lines += ["- (данные онлайн-replay появятся после ML-T6)"]
     lines += [
-        "- Пример карточки: «Борт 131672: +6 мин к ост. «Ул. Гарибальди» через 12 мин · причина: затор на перегоне "
+        "- Формат карточки (макет из `contracts/examples/`): «Борт 131672: +6 мин к ост. «Ул. Гарибальди» через 12 мин · причина: затор на перегоне "
         "(4 км/ч за 5 мин, норма 18) · рекомендация: держать 24 км/ч».",
         "",
         "**График:** `docs/pitch/data/horizon.csv` (распределение lead) и `docs/pitch/data/causes.csv` (доли причин).",

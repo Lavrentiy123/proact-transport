@@ -1,0 +1,6 @@
+metric,value
+forecasts_total,8236
+share_lead_in_window,1.0
+coverage,0.4402630031538996
+online_mae_model_s,64.15695773163317
+online_mae_baseline_s,162.19001942690628
