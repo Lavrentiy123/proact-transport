@@ -58,13 +58,19 @@ services:
     healthcheck: {disable: true}   # HEALTHCHECK образа проверяет HTTP backend, у replay его нет
     restart: unless-stopped
 
-  # TODO (Пуртов): раскомментировать, когда в ветке появится frontend/Dockerfile (nginx, порт 80 → 3000).
+  # TODO (слияние с веткой Пуртова): раскомментировать, когда в этой ветке появится frontend/.
+  # Блок совпадает с frontend/Dockerfile из origin/purtov/frontend-stage1: контекст ./frontend,
+  # nginx слушает 3000 и проксирует /api и /ws на backend:8000.
   # frontend:
-  #   build: {context: ., dockerfile: frontend/Dockerfile}
+  #   build: ./frontend
   #   image: proact-frontend:local
   #   depends_on:
   #     backend: {condition: service_healthy}
-  #   ports: ["${FRONTEND_PORT:-3000}:80"]
+  #   ports: ["${FRONTEND_PORT:-3000}:3000"]
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+  #     interval: 5s
+  #     retries: 10
   #   restart: unless-stopped
 
   # Официальный эмулятор NDTP организаторов (TCP-клиент: сам подключается к backend:9201).
