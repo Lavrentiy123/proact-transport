@@ -95,9 +95,9 @@
     "official_mae": 69.11813994958474,
     "interval_q10_q90_coverage_lobo": 0.5816599732262383,
     "interval_width_median_s": 177.16513568730963,
-    "interval_scale": 1.75,
+    "interval_scale": 1.8,
     "interval_q10_q90_coverage_lobo_calibrated": 0.8032128514056225,
-    "interval_width_median_calibrated_s": 310.03898745279184
+    "interval_width_median_calibrated_s": 320.1389407695027
   },
   "m_sched": {
     "base_mode": "zero",
@@ -120,9 +120,114 @@
     "source": "tests/ml/test_stop_detector.py"
   },
   "latency": {
-    "predict_30_ms_p50": 9.7,
+    "predict_30_ms_p50": 37.5,
     "docker_cold_start_to_ready_s": 14,
     "docker_image_mb": 1083,
-    "source": "tests/ml_core/test_api.py (TestClient, 30 строк), scripts/smoke_ml_core.sh"
+    "source": "tests/ml_core/test_api.py (TestClient, 30 строк), scripts/smoke_ml_core.sh",
+    "predict_30_ms_p50_catboost_only": 9.7,
+    "onnx_mlp_batch30_ms_p50": 0.8,
+    "note": "ансамбль (CatBoost-sched + ONNX MLP + квантили + окклюзия 5 групп) на загруженном ноутбуке i5-10210U"
+  },
+  "m_online_mlp": {
+    "lobo_mae_mlp": 83.05360478824042,
+    "lobo_mae_cat": 83.01662176638584,
+    "lobo_mae_cat_sched": 80.78860861084044,
+    "lobo_by_w_mlp": {
+      "0.0": 80.78860861084044,
+      "0.1": 80.27877197894537,
+      "0.2": 79.89424170434197,
+      "0.3": 79.63705975220635,
+      "0.4": 79.49032866739952,
+      "0.5": 79.48510324059863
+    },
+    "lobo_grid": {
+      "sched=0.0|mlp=0.0": 83.01662176638584,
+      "sched=0.0|mlp=0.1": 82.48469636188838,
+      "sched=0.0|mlp=0.2": 82.08567332855577,
+      "sched=0.0|mlp=0.3": 81.78568344755611,
+      "sched=0.0|mlp=0.4": 81.5929191430497,
+      "sched=0.0|mlp=0.5": 81.50756588495379,
+      "sched=0.25|mlp=0.0": 81.48283031669071,
+      "sched=0.25|mlp=0.1": 80.97788526319535,
+      "sched=0.25|mlp=0.2": 80.57607960552224,
+      "sched=0.25|mlp=0.3": 80.27033171795625,
+      "sched=0.25|mlp=0.4": 80.07941668258611,
+      "sched=0.25|mlp=0.5": 80.02057514775397,
+      "sched=0.5|mlp=0.0": 80.78860861084044,
+      "sched=0.5|mlp=0.1": 80.27877197894537,
+      "sched=0.5|mlp=0.2": 79.89424170434197,
+      "sched=0.5|mlp=0.3": 79.63705975220635,
+      "sched=0.5|mlp=0.4": 79.49032866739952,
+      "sched=0.5|mlp=0.5": 79.48510324059863,
+      "sched=0.75|mlp=0.0": 80.74709853877098,
+      "sched=0.75|mlp=0.1": 80.28941426992502,
+      "sched=0.75|mlp=0.2": 79.95460403584606
+    },
+    "w_mlp": 0.5,
+    "w_sched": 0.5,
+    "lobo_mae_blend": 79.48510324059863,
+    "note": "веса выбраны по минимуму LOBO",
+    "oof_cat_clipped_rows": 0,
+    "arch": "Linear(d,64)-ReLU-Dropout(0.1)-Linear(64,32)-ReLU-Linear(32,1)",
+    "epochs": 60,
+    "seeds": 5,
+    "minutes": 35.4
+  },
+  "ensemble_weights": {
+    "catboost": 0.0,
+    "catboost_sched": 0.5,
+    "torch_mlp_onnx": 0.5
+  },
+  "online_eval": {
+    "tick_300s": {
+      "ticks_total": 3731,
+      "forecasts_total": 1648,
+      "coverage": 0.44170463682658806,
+      "share_lead_in_window": 1.0,
+      "resolved_total": 1648,
+      "online_mae_model_s": 61.65057165212194,
+      "online_mae_baseline_s": 163.01395631067962,
+      "online_mae_zero_s": 94.14016990291262,
+      "interval_coverage": 0.9866504854368932,
+      "causes_pct": {
+        "accumulated": 52.5,
+        "hard_segment": 23.7,
+        "low_data": 9.2,
+        "congestion": 8.1,
+        "early": 4.7,
+        "dwell": 1.7
+      },
+      "per_bus_ms_p50": 13.822388096914871,
+      "per_bus_ms_p99": 65.80080399985793,
+      "buses": 13
+    },
+    "tick_60s": {
+      "ticks_total": 18707,
+      "forecasts_total": 8236,
+      "coverage": 0.4402630031538996,
+      "share_lead_in_window": 1.0,
+      "resolved_total": 8236,
+      "online_mae_model_s": 64.15695773163317,
+      "online_mae_baseline_s": 162.19001942690628,
+      "online_mae_zero_s": 95.41221466731423,
+      "interval_coverage": 0.955560951918407,
+      "causes_pct": {
+        "accumulated": 52.1,
+        "hard_segment": 23.2,
+        "low_data": 9.2,
+        "congestion": 9.0,
+        "early": 5.0,
+        "dwell": 1.5
+      },
+      "per_bus_ms_p50": 6.567267850360146,
+      "per_bus_ms_p99": 46.40171750033905,
+      "buses": 13
+    },
+    "out_of_sample_lobo": {
+      "n_points": 353,
+      "online_mae_model_s": 84.02015771168303,
+      "online_mae_baseline_s": 177.11048158640227,
+      "online_mae_zero_s": 103.33711048158641
+    }
   }
 }
