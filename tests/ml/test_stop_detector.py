@@ -14,11 +14,18 @@ M_PER_DEG_LON = 111_195.0 * np.cos(np.radians(LAT0))
 M_PER_DEG_LAT = 111_195.0
 
 
-def _sched(n=3, spacing_m=500.0, start="2026-01-06 10:00:00", step_min=2):
+def _sched(n=3, spacing_m=500.0, start="2026-01-06 10:00:00", step_min=2, lead=False):
+    """Остановки на запад → восток. ``lead`` — добавить впереди остановку 100 (за 2 км и 2 мин до 101),
+    чтобы 101 была промежуточной, а не началом рейса (у начала рейса прибытие = отправление)."""
+    x = np.arange(n) * spacing_m
+    ids = np.arange(101, 101 + n)
+    plan = pd.Timestamp(start) + pd.to_timedelta(np.arange(n) * step_min, unit="min")
+    if lead:
+        x, ids = np.r_[-2000.0, x], np.r_[100, ids]
+        plan = pd.DatetimeIndex([pd.Timestamp(start) - pd.Timedelta(minutes=2)]).append(plan)
     return pd.DataFrame({
-        "tr_id": 1, "stop_id": np.arange(101, 101 + n),
-        "time_plan": pd.Timestamp(start) + pd.to_timedelta(np.arange(n) * step_min, unit="min"),
-        "lat": LAT0, "lon": LON0 + np.arange(n) * spacing_m / M_PER_DEG_LON, "name": [f"S{i}" for i in range(n)],
+        "tr_id": 1, "stop_id": ids, "time_plan": plan,
+        "lat": LAT0, "lon": LON0 + x / M_PER_DEG_LON, "name": [f"S{i}" for i in range(len(ids))],
     })
 
 
@@ -50,7 +57,7 @@ def test_three_stops_in_order_and_no_return():
 
 
 def test_pass_by_40m_counts_as_pass():
-    det = StopDetector(_sched(n=1))
+    det = StopDetector(_sched(n=1, lead=True))
     arr, times = _drive(det, -300, 300, pd.Timestamp("2026-01-06 09:59:30"), lat_offset_m=40.0)
     assert len(arr) == 1 and arr[0][0] == 101
     # время прибытия = время фикса с минимальным расстоянием (ближайший к x=0)
@@ -73,7 +80,7 @@ def test_outside_time_window_ignored():
 
 
 def test_known_uses_detection_time():
-    det = StopDetector(_sched(n=1))
+    det = StopDetector(_sched(n=1, lead=True))
     _drive(det, -300, 300, pd.Timestamp("2026-01-06 09:59:30"), lat_offset_m=40.0)
     idx, t_arr, t_det = det.records()
     assert len(det.known(t_arr[0])[0]) == 0      # прибытие произошло, но ещё не обнаружено
@@ -89,6 +96,40 @@ def test_expired_stops_do_not_block_pointer():
     arr, _ = _drive(det, 1300, 1600, pd.Timestamp("2026-01-06 10:44:00"))
     assert [s for s, _ in arr] == [104]
     assert set(det.missed) == {101, 102, 103}
+
+
+def test_early_pass_outside_6min_window_ignored():
+    # борт проходит промежуточную остановку за 8 мин до плана (окно было 20 мин — ложное прибытие)
+    det = StopDetector(_sched(n=1, lead=True))
+    arr, _ = _drive(det, -300, 300, pd.Timestamp("2026-01-06 09:52:00"))
+    assert arr == []
+    arr, _ = _drive(det, -300, 300, pd.Timestamp("2026-01-06 09:55:00"))  # за 5 мин — уже в окне
+    assert [s for s, _ in arr] == [101]
+
+
+def test_terminal_arrival_is_departure():
+    # начало рейса: борт приехал за 5 мин до плана, стоит у остановки (дрожание GPS ±8 м) и уезжает в 10:01
+    det = StopDetector(_sched(n=2, step_min=3))
+    t0 = pd.Timestamp("2026-01-06 09:55:00")
+    rng = np.random.default_rng(0)
+    arr = []
+    for j in range(72):  # 6 мин стоянки, фикс раз в 5 с
+        jx, jy = rng.uniform(-8, 8, 2)
+        arr += det.update(t0 + pd.Timedelta(seconds=5 * j), LAT0 + jy / M_PER_DEG_LAT, LON0 + jx / M_PER_DEG_LON, 0.0)
+    assert arr == []  # пока стоит — отправления ещё нет
+    out, times = _drive(det, 0, 300, t0 + pd.Timedelta(seconds=360))
+    assert out and out[0][0] == 101
+    assert out[0][1] >= pd.Timestamp("2026-01-06 10:00:50")  # время = отъезд, а не приезд в 09:55
+
+
+def test_wrong_way_pass_is_not_arrival():
+    # маршрут идёт на восток; борт проезжает остановку 102 на запад (встречная) — не прибытие
+    det = StopDetector(_sched(n=3, lead=True))
+    arr, times = _drive(det, 800, 300, pd.Timestamp("2026-01-06 10:01:00"))
+    assert arr == [] and det.i == 0
+    # тот же борт по маршруту (на восток) — прибытие засчитано
+    arr, _ = _drive(det, 300, 700, times[-1][0] + pd.Timedelta(seconds=5))
+    assert [s for s, _ in arr] == [102]
 
 
 @pytest.mark.slow

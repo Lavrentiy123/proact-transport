@@ -92,7 +92,7 @@ def render(card: dict, cfg: dict) -> str:
         "Интервал q10–q90 — квантильные CatBoost; `p_late = 1 − Φ((120 − ŷ)/σ)`, `σ = max((q90 − q10)/2.563, 20)`.",
         "Причина — групповая окклюзия: congestion / dwell / accumulated / hard_segment + правила low_data и early.",
         "",
-        "## Признаки (34, `FEATURES_VERSION = v1`)",
+        f"## Признаки (34, `FEATURES_VERSION = {card['features_version']}`)",
         "",
         "| # | Признак | Определение |",
         "|---|---|---|",

@@ -17,7 +17,7 @@ from .geo import haversine_m
 from .io import ScheduleArrays, load_schedule, load_traffic, times_to_epoch_s, to_epoch_s
 from .stop_detector import StopDetector, pending_stops
 
-FEATURES_VERSION = "v1"
+FEATURES_VERSION = "v2"  # v2: детектор — окно −6 мин, отправление на конечных, проверка направления
 WINDOWS_MIN = (1, 3, 5, 10)
 FEATURE_NAMES: list[str] = (
     ["cur_dev_s", "horizon_s", "tod_sin", "tod_cos", "hour",
