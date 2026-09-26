@@ -1,0 +1,128 @@
+{
+  "created_at": "2026-09-26T14:36:20",
+  "git_hash": "7c6e169",
+  "features_version": "v1",
+  "cb_params": {
+    "learning_rate": 0.04,
+    "depth": 6,
+    "l2_leaf_reg": 5,
+    "loss_function": "MAE",
+    "verbose": 0,
+    "allow_writing_files": false,
+    "thread_count": -1,
+    "border_count": 64
+  },
+  "mapping_checks": {
+    "n_real": 13,
+    "n_synth": 26,
+    "corr_first3": [
+      0.93,
+      0.916,
+      0.907
+    ],
+    "geometry_match": "26/26"
+  },
+  "n_points": {
+    "pool": 4787,
+    "pool_real": 1494,
+    "train": 4434,
+    "test": 353
+  },
+  "baselines": {
+    "lobo_cur_dev_official": 88.37884872824633,
+    "lobo_cur_dev_reconstructed": 161.72757697456493,
+    "lobo_zero": 93.0033467202142,
+    "official_cur_dev": 93.35977337110482,
+    "fwd_cur_dev": 87.1109243697479,
+    "fwd_cur_dev_reconstructed": 171.90084033613445
+  },
+  "m_ds": {
+    "iterations": 400,
+    "lobo_by_iter": {
+      "400": 75.24096225049959,
+      "600": 75.92057117265276,
+      "800": 76.26375862996021,
+      "1200": 76.43116532443652
+    },
+    "lobo_mae": 75.24096225049959,
+    "lobo_by_iter_notod": {
+      "400": 75.57529990090795,
+      "600": 76.2393672335971,
+      "800": 76.39606299466104,
+      "1200": 76.82116198904328
+    },
+    "lobo_mae_notod": 75.57529990090795,
+    "official_mae_tod": 62.998719635759144,
+    "official_mae_notod": 65.40913458792895,
+    "submission_variant": "tod",
+    "official_mae": 62.998719635759144,
+    "fwd_mae": 79.3370180099721,
+    "lobo_mae_per_bus": {
+      "122048": 80.2,
+      "122613": 47.0,
+      "122658": 81.5,
+      "129964": 67.5,
+      "130072": 55.9,
+      "130238": 67.3,
+      "131672": 79.9,
+      "132430": 97.5,
+      "133300": 82.9,
+      "133957": 69.8,
+      "134040": 69.3,
+      "134494": 9.5,
+      "135081": 80.0
+    }
+  },
+  "m_online": {
+    "base_mode": "zero",
+    "iterations": 400,
+    "lobo_mae": 83.01662176638584,
+    "lobo_by_iter": {
+      "cur_dev": {
+        "400": 89.75172002153981,
+        "600": 89.66444546787483,
+        "800": 89.54970363703193,
+        "1200": 89.58439558761157
+      },
+      "zero": {
+        "400": 83.01662176638584,
+        "600": 83.22486548991846,
+        "800": 83.37636194018421,
+        "1200": 83.78929952912459
+      }
+    },
+    "fwd_mae": 83.08967575519596,
+    "official_mae": 69.11813994958474,
+    "interval_q10_q90_coverage_lobo": 0.5816599732262383,
+    "interval_width_median_s": 177.16513568730963,
+    "interval_scale": 1.75,
+    "interval_q10_q90_coverage_lobo_calibrated": 0.8032128514056225,
+    "interval_width_median_calibrated_s": 310.03898745279184
+  },
+  "m_sched": {
+    "base_mode": "zero",
+    "iterations": 600,
+    "lobo_mae": 81.50079012964045,
+    "lobo_mae_by_base": {
+      "cur_dev": 91.39653025330766,
+      "zero": 81.50079012964045
+    },
+    "fwd_mae": 88.78925341803131
+  },
+  "model_version": "m_online-v1-7c6e169",
+  "train_minutes": 43.4,
+  "detector": {
+    "coverage": 0.842,
+    "within30": 0.774,
+    "median_err_s": -4.0,
+    "mae_s": 36.3,
+    "n_stops": 15687,
+    "source": "tests/ml/test_stop_detector.py"
+  },
+  "latency": {
+    "predict_30_ms_p50": 9.7,
+    "docker_cold_start_to_ready_s": 14,
+    "docker_image_mb": 1083,
+    "source": "tests/ml_core/test_api.py (TestClient, 30 строк), scripts/smoke_ml_core.sh"
+  }
+}

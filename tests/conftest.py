@@ -1,11 +1,11 @@
-"""Общие фикстуры ML-тестов: данные test/train, загруженные один раз за сессию."""
+"""Общие фикстуры тестов (ml, ml_core, product): данные test/train, загруженные один раз за сессию."""
 from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 
 

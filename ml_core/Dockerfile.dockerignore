@@ -1,0 +1,9 @@
+# Используется BuildKit только для ml_core/Dockerfile (контекст — корень репозитория)
+**
+!contracts/
+!features/
+!models/
+!ml_core/
+**/__pycache__
+**/*.pyc
+models/catboost_info
