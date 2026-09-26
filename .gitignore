@@ -30,3 +30,8 @@ frontend/dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# ML (Лаврентий)
+.venv312/
+cache/
+*.parquet
