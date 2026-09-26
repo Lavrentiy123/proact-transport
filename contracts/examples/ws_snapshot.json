@@ -1,0 +1,153 @@
+{
+  "type": "snapshot",
+  "sim_time": "2026-01-06T12:40:00",
+  "status": {
+    "mode": "REPLAY",
+    "sim_time": "2026-01-06T12:40:00",
+    "replay_speed": 5.0,
+    "ndtp_sessions": 11,
+    "last_packet_age_s": 0.8,
+    "ml_core_ok": true,
+    "model_version": "catboost-online-v1"
+  },
+  "vehicles": [
+    {
+      "tr_id": 131672,
+      "lat": 55.6643,
+      "lon": 37.5536,
+      "speed_kmh": 6.0,
+      "heading": 182.0,
+      "cur_dev_s": 274.0,
+      "seg_speed_kmh": 7.5,
+      "dwell_s": 0.0,
+      "last_seen_s": 3.1,
+      "stale": false,
+      "is_opening_or_closing_trip": false,
+      "forecast": {
+        "target_stop_id": 53700172828,
+        "target_stop_name": "Ул. Гарибальди",
+        "target_time_plan": "2026-01-06T12:52:00",
+        "issued_at": "2026-01-06T12:40:00",
+        "lead_s": 720,
+        "delay_pred_s": 372.0,
+        "delay_q10_s": 300.0,
+        "delay_q90_s": 455.0,
+        "p_late": 0.93,
+        "risk": "red",
+        "quality": "full",
+        "cause": {
+          "code": "congestion",
+          "text": "Затор на перегоне",
+          "evidence": "6 км/ч за 5 мин (норма 18), стоит 2:40 вне остановки",
+          "confidence": 0.64
+        },
+        "model_version": "catboost-online-v1"
+      }
+    },
+    {
+      "tr_id": 122658,
+      "lat": 55.8055,
+      "lon": 37.4544,
+      "speed_kmh": 21.0,
+      "heading": 75.0,
+      "cur_dev_s": 95.0,
+      "seg_speed_kmh": 19.0,
+      "dwell_s": 0.0,
+      "last_seen_s": 1.4,
+      "stale": false,
+      "is_opening_or_closing_trip": true,
+      "forecast": {
+        "target_stop_id": 53699433974,
+        "target_stop_name": "Ул. Маршала Малиновского, 17",
+        "target_time_plan": "2026-01-06T12:53:00",
+        "issued_at": "2026-01-06T12:40:00",
+        "lead_s": 780,
+        "delay_pred_s": 160.0,
+        "delay_q10_s": 90.0,
+        "delay_q90_s": 230.0,
+        "p_late": 0.61,
+        "risk": "yellow",
+        "quality": "full",
+        "cause": {
+          "code": "accumulated",
+          "text": "Накопленное отставание",
+          "evidence": "Уже +1:35 на ост. «Живописная ул., 7»",
+          "confidence": 0.55
+        },
+        "model_version": "catboost-online-v1"
+      }
+    },
+    {
+      "tr_id": 130072,
+      "lat": 55.7512,
+      "lon": 37.6184,
+      "speed_kmh": 0.0,
+      "heading": 0.0,
+      "cur_dev_s": -20.0,
+      "seg_speed_kmh": null,
+      "dwell_s": 25.0,
+      "last_seen_s": 47.0,
+      "stale": true,
+      "is_opening_or_closing_trip": false,
+      "forecast": {
+        "target_stop_id": 53700100001,
+        "target_stop_name": "Театральная пл.",
+        "target_time_plan": "2026-01-06T12:51:00",
+        "issued_at": "2026-01-06T12:40:00",
+        "lead_s": 660,
+        "delay_pred_s": 10.0,
+        "delay_q10_s": -60.0,
+        "delay_q90_s": 95.0,
+        "p_late": 0.12,
+        "risk": "green",
+        "quality": "degraded",
+        "cause": {
+          "code": "low_data",
+          "text": "Низкое доверие к данным",
+          "evidence": "Нет данных 47 с, позиция экстраполирована",
+          "confidence": 0.8
+        },
+        "model_version": "catboost-online-v1"
+      }
+    }
+  ],
+  "alerts": [
+    {
+      "alert_id": "131672-53700172828",
+      "created_at": "2026-01-06T12:40:00",
+      "tr_id": 131672,
+      "risk": "red",
+      "priority": 90,
+      "title": "Борт 131672: +6:12 к ост. «Ул. Гарибальди» через 12 мин",
+      "forecast": {
+        "target_stop_id": 53700172828,
+        "target_stop_name": "Ул. Гарибальди",
+        "target_time_plan": "2026-01-06T12:52:00",
+        "issued_at": "2026-01-06T12:40:00",
+        "lead_s": 720,
+        "delay_pred_s": 372.0,
+        "delay_q10_s": 300.0,
+        "delay_q90_s": 455.0,
+        "p_late": 0.93,
+        "risk": "red",
+        "quality": "full",
+        "cause": {
+          "code": "congestion",
+          "text": "Затор на перегоне",
+          "evidence": "6 км/ч за 5 мин (норма 18), стоит 2:40 вне остановки",
+          "confidence": 0.64
+        },
+        "model_version": "catboost-online-v1"
+      },
+      "recommendation": {
+        "action": "speed_advice",
+        "text": "После затора держать среднюю скорость 24 км/ч до ост. «Ул. Гарибальди»",
+        "target_speed_kmh": 24.0,
+        "hold_s": null,
+        "stop_id": 53700172828,
+        "expected_delay_after_s": 240.0
+      },
+      "status": "active"
+    }
+  ]
+}
