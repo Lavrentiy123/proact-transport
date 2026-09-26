@@ -46,6 +46,9 @@ class LiveHub(Hub):
         self.alerts_by_tr: dict = {}       # tr_id -> Alert
         self.alerts_closed: list = []      # снятые/решённые алерты
         self.ticker = None                 # компонент тика (шаг 5)
+        self.dropped_out_of_window = 0
+        self.replay = None                 # replay внутри процесса (REPLAY_INPROCESS=1)
+        self._replay_task = None
 
     # ---------------- жизненный цикл ----------------
     async def start(self) -> None:
@@ -57,8 +60,19 @@ class LiveHub(Hub):
         await self.server.start()
         if self.ticker is not None:
             await self.ticker.start()
+        if self.s.replay_inprocess:
+            import asyncio
+
+            from .replay import ReplayClient, load_rows
+            self.replay = ReplayClient(load_rows(self.s.traffic_file), "127.0.0.1", self.server.port, self.clock,
+                                       preroll_s=self.s.replay_preroll_min * 60)
+            self._replay_task = asyncio.create_task(self.replay.run(), name="replay")
 
     async def stop(self) -> None:
+        if self.replay is not None:
+            self.replay.stop()
+            if self._replay_task is not None:
+                await self._replay_task
         if self.ticker is not None:
             await self.ticker.stop()
         await self.server.stop()
@@ -75,8 +89,12 @@ class LiveHub(Hub):
         """Кадр NDTP → пакеты в реестр бортов (время — по часам симуляции)."""
         if not fr.is_realtime or self.fleet is None:
             return
+        now = self.clock.now_s()
         for nav in fr.navs:
             t_s = self.clock.to_sim(nav.ts)
+            if t_s < now - self.s.accept_past_s or t_s > now + self.s.accept_future_s:
+                self.dropped_out_of_window += 1   # пакет вне окна «сейчас − 40 мин … сейчас + 60 с»
+                continue
             arrivals = self.fleet.on_fix(fr.unit_id, t_s, nav.lat, nav.lon, nav.speed, nav.course, nav.valid)
             if arrivals and self.ticker is not None:
                 self.ticker.on_arrivals(arrivals)
@@ -104,7 +122,8 @@ class LiveHub(Hub):
             ndtp_connections_total=self.server.connections_total, ndtp_packets_total=self.server.realtime_packets,
             ndtp_nav_fixes_total=self.server.nav_fixes, ndtp_crc_errors_total=st.crc_errors,
             ndtp_garbage_bytes_total=st.garbage_bytes,
-            unknown_units=len(self.fleet.unknown_units) if self.fleet else 0, predictor=predictor)
+            unknown_units=len(self.fleet.unknown_units) if self.fleet else 0, predictor=predictor,
+            ndtp_dropped_out_of_window=self.dropped_out_of_window)
 
     def _vehicle_state(self, v: Tracked, now_s: float) -> VehicleState | None:
         if v.last_valid is None or v.last is None:

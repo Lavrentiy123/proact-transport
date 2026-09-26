@@ -25,7 +25,11 @@ class Settings:
     traffic_path: str = "data/test/traffic.csv"     # только пары unit_id ↔ tr_id
     replay_start_at: str = "2026-01-06T07:00:00"    # начальное время симуляции
     replay_speed: float = 10.0
-    tick_s: float = 5.0                  # период тика, секунды времени симуляции
+    replay_inprocess: bool = False       # запустить replay внутри backend (локально без compose)
+    replay_preroll_min: float = 30.0
+    accept_past_s: float = 2400.0        # пакеты старше «сейчас − 40 мин» отбрасываются
+    accept_future_s: float = 60.0        # и новее «сейчас + 60 с» — тоже (в потоке нет будущего)
+    tick_s: float = 5.0                 # период тика, секунды времени симуляции
     degraded_after_s: float = 15.0       # нет пакетов дольше — режим DEGRADED (секунды реального времени)
     stale_after_s: float = 30.0          # борт молчит дольше — stale (секунды симуляции)
     ml_url: str = ""                     # http://ml-core:8001; пусто — ml-core не используется
