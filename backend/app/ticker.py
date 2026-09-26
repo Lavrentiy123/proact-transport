@@ -42,6 +42,7 @@ class Ticker:
         self.infer_ms: deque[float] = deque(maxlen=2000)
         self.ticks = 0
         self.overruns = 0
+        self.skipped = 0
         self.errors = 0
         self.last_tick_s: float | None = None
         self.last_source = "none"
@@ -80,16 +81,35 @@ class Ticker:
         tick = self.hub.s.tick_s
         while True:
             clock = self.hub.clock
+            epoch = clock.epoch
             now = clock.now_s()
             nxt = (math.floor(now / tick) + 1) * tick
             await asyncio.sleep(max(0.0, (nxt - now) / max(clock.speed, 1e-6)))
+            T = self.due_tick(nxt, epoch)
+            if T is None:
+                continue
             try:
-                await self.tick(nxt)
+                await self.tick(T)
             except Exception:
                 self.errors += 1
                 log.exception("tick failed")
-            if self.hub.clock.now_s() > nxt + tick:
+            if self.hub.clock.now_s() > T + tick:
                 self.overruns += 1
+
+    def due_tick(self, planned: float, epoch: int) -> float | None:
+        """Момент тика после сна: ``None`` — пропустить (часы перенесены или ушли назад), иначе точка сетки ≤ сейчас.
+
+        Прогноз никогда не выпускается с ``issued_at`` позже текущего времени симуляции.
+        """
+        clock, tick = self.hub.clock, self.hub.s.tick_s
+        now = clock.now_s()
+        if clock.epoch != epoch or now < planned - 1e-6:
+            self.skipped += 1
+            return None
+        if now >= planned + tick:            # отстали (смена скорости, долгий тик) — берём последнюю точку сетки
+            self.overruns += 1
+            return math.floor(now / tick) * tick
+        return planned
 
     async def tick(self, T: float) -> None:
         """Один тик в момент ``T`` (секунды времени симуляции)."""
@@ -116,21 +136,19 @@ class Ticker:
             results = await self.ml.predict(rows, "sched" if degraded else "online")
             if results is not None:
                 self.infer_ms.append((time.perf_counter() - t_inf) * 1000.0)
-            else:
-                results = [rule_predict(v.tr_id, f.get("cur_dev_s")) for v, _, f in metas]
-            by_tr = {r.tr_id: r for r in results}
+            by_tr = {r.tr_id: r for r in results or []}
             for v, tgt, feats in metas:
                 r = by_tr.get(v.tr_id)
-                if r is not None:
-                    self._apply(v, tgt, feats, r, T, now_dt, degraded)
-            self.last_source = results[0].source
-            self.last_version = results[0].model_version
+                if r is None:        # ml-core недоступен или не вернул этот борт — правило, quality=fallback
+                    r = rule_predict(v.tr_id, feats.get("cur_dev_s"))
+                self._apply(v, tgt, feats, r, T, now_dt)
+                self.last_source, self.last_version = r.source, r.model_version
         self.last_rows = len(metas)
         self.ticks += 1
         self.last_tick_s = T
         self.tick_ms.append((time.perf_counter() - t0) * 1000.0)
 
-    def _apply(self, v, tgt, feats: dict, r, T: float, now_dt, degraded: bool) -> None:
+    def _apply(self, v, tgt, feats: dict, r, T: float, now_dt) -> None:
         hub, s = self.hub, self.hub.s
         stop_id, plan_ts = tgt
         plan_s = plan_ts.value / 1e9
@@ -170,9 +188,12 @@ class Ticker:
         ничего не отправляется. Алерт уходит из активных и не поднимается снова, пока борт не
         «успокоится» (прогноз < 200 с два тика подряд). Решения пишутся в журнал аудита.
         """
+        from .hub import ActionResponseEx, AlertNotActive
         alert = self.book.find(req.alert_id)
         if alert is None:
             return None
+        if alert.status != "active":
+            raise AlertNotActive(f"алерт {req.alert_id} уже {alert.status}")
         status = "applied" if req.action == "apply" else "dismissed"
         self.book.decide(req.alert_id, status)
         if status == "applied":
@@ -184,7 +205,8 @@ class Ticker:
         self.audit.append({"alert_id": req.alert_id, "tr_id": alert.tr_id, "action": req.action, "status": status,
                            "comment": req.comment, "driver_message": msg, "driver_reply": reply,
                            "sim_time": from_epoch_s(self.hub.clock.now_s()).isoformat()})
-        return ActionResponse(alert_id=req.alert_id, status=status, driver_message=msg, driver_reply=reply)
+        return ActionResponseEx(alert_id=req.alert_id, status=status, driver_message=msg, driver_reply=reply,
+                                driver_reply_emulated=reply is not None)
 
 
 def driver_reply(alert) -> str:

@@ -55,7 +55,7 @@
     "tags": [
      "system"
     ],
-    "summary": "Режим LIVE/DEGRADED/REPLAY, время симуляции, сессии NDTP, состояние ml-core",
+    "summary": "Режим LIVE/DEGRADED, время симуляции, сессии NDTP, состояние ml-core",
     "description": "``SystemStatus`` контракта плюс необязательные счётчики приёма NDTP.",
     "operationId": "system_status_api_v1_system_status_get",
     "responses": {
@@ -217,7 +217,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/ActionResponse"
+         "$ref": "#/components/schemas/ActionResponseEx"
         }
        }
       }
@@ -372,7 +372,7 @@
     ],
     "title": "ActionRequest"
    },
-   "ActionResponse": {
+   "ActionResponseEx": {
     "properties": {
      "alert_id": {
       "type": "string",
@@ -396,6 +396,18 @@
        }
       ],
       "title": "Driver Reply"
+     },
+     "driver_reply_emulated": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Driver Reply Emulated",
+      "description": "true — ответ водителя эмулирован правилом (демо)"
      }
     },
     "type": "object",
@@ -404,7 +416,8 @@
      "status",
      "driver_message"
     ],
-    "title": "ActionResponse"
+    "title": "ActionResponseEx",
+    "description": "``ActionResponse`` + необязательный флаг: ответ водителя в демо эмулирован (не пришёл по NDTP)."
    },
    "Alert": {
     "properties": {
@@ -952,7 +965,7 @@
        }
       ],
       "title": "Ndtp Dropped Out Of Window",
-      "description": "пакетов вне окна «сейчас − 40 мин … + 60 с»"
+      "description": "пакетов вне окна «сейчас − 40 мин … + 30 с»"
      },
      "emulator": {
       "anyOf": [

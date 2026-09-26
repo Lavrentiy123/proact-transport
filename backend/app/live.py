@@ -96,7 +96,7 @@ class LiveHub(Hub):
         for nav in fr.navs:
             t_s = self.clock.to_sim(nav.ts)
             if t_s < now - self.s.accept_past_s or t_s > now + self.s.accept_future_s:
-                self.dropped_out_of_window += 1   # пакет вне окна «сейчас − 40 мин … сейчас + 60 с»
+                self.dropped_out_of_window += 1   # пакет вне окна «сейчас − 40 мин … сейчас + 30 с»
                 continue
             arrivals = self.fleet.on_fix(fr.unit_id, t_s, nav.lat, nav.lon, nav.speed, nav.course, nav.valid)
             if arrivals and self.ticker is not None:
@@ -199,8 +199,8 @@ class LiveHub(Hub):
         self.forecasts.clear()
         self.ticker.reset()
 
-    def journal_csv(self) -> str | None:
-        return self.ticker.journal.to_csv()
+    def journal_snapshot(self):
+        return self.ticker.journal.snapshot_csv()
 
     def snapshot(self) -> WsMessage:
         return WsMessage(type="snapshot", sim_time=self.clock.now().to_pydatetime(), vehicles=self.vehicles(),

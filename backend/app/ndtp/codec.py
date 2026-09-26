@@ -215,17 +215,25 @@ def iter_frames(buf: bytes | bytearray, stats: DecodeStats | None = None) -> tup
         if n - pos < NPL.size:
             return frames, mv[pos:]
         sig, size, _fl, crc_field, typ, unit_id, _rid = NPL.unpack_from(mv, pos)
-        if size < NPH.size or size > MAX_DATA_SIZE or typ != NPL_TYPE_NPH:
+        if size < NPH.size or typ != NPL_TYPE_NPH:
             st.bad_headers += 1
             pos += 1          # ложная сигнатура — ищем следующую
             continue
         end = pos + NPL.size + size
         if end > n:
-            return frames, mv[pos:]
+            # кадр ещё не пришёл целиком — или это ложный заголовок с «правдоподобной» длиной:
+            # если дальше в буфере уже есть целый кадр с верным CRC, заголовок ложный, прыгаем к нему
+            j = _next_valid_frame(mv, pos + 1, n)
+            if j < 0:
+                return frames, mv[pos:]
+            st.bad_headers += 1
+            st.garbage_bytes += j - pos
+            pos = j
+            continue
         body = mv[pos + NPL.size:end]
         if crc_field != swap16(crc16_modbus(body)):
             st.crc_errors += 1
-            pos = end
+            pos += 1          # битый или ложный кадр: ресинхронизация со следующего байта (кадры внутри не теряем)
             continue
         fr = parse_body(unit_id, body)
         st.frames += 1
@@ -233,6 +241,19 @@ def iter_frames(buf: bytes | bytearray, stats: DecodeStats | None = None) -> tup
             st.unknown_cells += 1
         frames.append(fr)
         pos = end
+
+
+def _next_valid_frame(mv: bytes, start: int, n: int) -> int:
+    """Позиция следующего целого кадра с верным CRC после ``start`` или ``-1``."""
+    j = mv.find(SIGNATURE_BYTES, start)
+    while 0 <= j and j + NPL.size <= n:
+        _s, size, _f, crc_field, typ, _u, _r = NPL.unpack_from(mv, j)
+        end = j + NPL.size + size
+        if size >= NPH.size and typ == NPL_TYPE_NPH and end <= n \
+                and crc_field == swap16(crc16_modbus(mv[j + NPL.size:end])):
+            return j
+        j = mv.find(SIGNATURE_BYTES, j + 1)
+    return -1
 
 
 class FrameDecoder:

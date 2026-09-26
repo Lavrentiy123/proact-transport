@@ -10,7 +10,7 @@ flowchart LR
     end
     subgraph be["backend :8000 / NDTP :9201"]
         S["NDTP TCP-сервер\nпарсер + CRC-16/Modbus"]
-        F["реестр бортов\nOnlineVehicle: буфер 30 мин,\nдетектор прибытий, признаки"]
+        F["реестр бортов\nOnlineVehicle: буфер 35 мин\n(признаки по окну 30 мин),\nдетектор прибытий"]
         T["тик 5 с (время симуляции)\nцель в (T+10, T+15] мин"]
         A["алерты с гистерезисом,\nпричина, рекомендация,\nжурнал горизонта"]
         API["REST /api/v1/*, WS /ws/live,\n/metrics, Swagger /docs"]
@@ -34,13 +34,13 @@ flowchart LR
 
 | Сбой | Поведение системы | Проверка |
 |---|---|---|
-| Обрыв потока NDTP (нет пакетов ≥ 15 с) | режим `DEGRADED`; прогноз по расписанию (`ml-core`, модель `m_sched`) с `quality=fallback`; сервис отвечает | `bash scripts/chaos.sh`: DEGRADED через 14.7 с, `/health` 200 |
+| Обрыв потока NDTP (нет пакетов ≥ 15 с) | режим `DEGRADED`; прогноз по расписанию (`ml-core`, модель `m_sched`) с `quality=fallback`; сервис отвечает | `bash scripts/chaos.sh`: DEGRADED через 14.7 с после остановки источника (15.6 с от начала команды `stop`), `/health` 200 |
 | Поток вернулся | первый пакет → `LIVE`; replay продолжает с текущего времени backend и досылает 30 мин «разгона» | LIVE через 1.8 с |
 | Борт молчит > 30 с | `stale=true`, прогноз с `quality=degraded` | `tests/backend/test_degraded.py` |
 | `ml-core` недоступен | circuit breaker: 3 ошибки → 30 с без вызовов → пробный вызов; прогноз по правилу с `quality=fallback` | chaos: правило через 0.2 с, `ml-core` снова через 31.3 с |
 | Битый кадр, мусор в сокете | кадр отбрасывается, счётчик `ndtp_crc_errors_total`, соединение живёт; ресинхронизация по сигнатуре `0x7E7E` | `tests/backend/test_ndtp_codec.py` |
 | Неизвестный терминал (`unitId` не из датасета) | борт на карте без прогноза, сервис не падает | живой эмулятор: 2 неизвестных юнита |
-| Пакет «из будущего» или старше 40 мин | отбрасывается (`dropped_total{kind="out_of_window"}`) — в буфере нет будущего | `test_future_and_ancient_packets_are_dropped` |
+| Пакет новее «сейчас + 30 с» или старше 40 мин | отбрасывается (`dropped_total{kind="out_of_window"}`); допуск +30 с — на округление меток эмулятора и дрейф часов, признаки берут только `t ≤ T` | `test_future_and_ancient_packets_are_dropped` |
 | Эмулятор перезапустился и потерял конфиг | сторожок раз в 10 с: пустой конфиг → `POST /api/config` заново | `tests/backend/test_emulator_ctl.py` |
 | Медленный клиент WebSocket | очередь на 1 сообщение, старый снапшот вытесняется | `dropped_total{kind="ws_slow_client"}` |
 
