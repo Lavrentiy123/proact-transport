@@ -45,7 +45,7 @@ curl http://localhost:8000/ready
 curl -X POST http://localhost:8000/api/v1/replay/control -H "Content-Type: application/json" -d '{"speed": 5, "start_at": "2026-01-06T07:25:00"}'
 ```
 
-При переносе времени буферы бортов, алерты и журнал начинаются заново (30 минут «разгона» телеметрии отправляются пачкой).
+При переносе времени буферы бортов, алерты, журнал и `metrics/horizon` начинаются заново (30 минут «разгона» телеметрии отправляются пачкой); первые сверенные с фактом прогнозы (`resolved_total`) появляются через 10–15 минут времени симуляции — столько до целевой остановки.
 
 **Вариант 2 — официальный эмулятор NDTP организаторов.**
 
@@ -71,7 +71,7 @@ bash scripts/chaos.sh
 
 - `metrics/horizon`: `share_lead_in_window` — доля прогнозов, выданных за 10–15 минут до планового прибытия (по построению 1.0); `online_mae_model_s` — MAE прогнозов, уже сверенных с фактическим прибытием, которое зафиксировал поток (детектор прибытий, не данные расписания).
 - Первый алерт на replay с 07:00 при ×10 появляется примерно через 2.5–3 минуты: модель впервые даёт красный прогноз в 07:27 по времени датасета. Быстрее увидеть алерт: `start_at` = `2026-01-06T07:25:00` (команда выше).
-- `scripts/chaos.sh` останавливает источник потока → режим `DEGRADED` (прогноз по расписанию, `quality=fallback`), затем запускает → `LIVE`; то же для `ml-core` (прогноз по правилу). Сервис не падает.
+- `scripts/chaos.sh` (bash; в Windows — Git Bash) останавливает источник потока → режим `DEGRADED` (прогноз по расписанию, `quality=fallback`), затем запускает → `LIVE`; то же для `ml-core` (прогноз по правилу). Сервис не падает.
 
 ## 6. Если что-то пошло не так
 
@@ -82,4 +82,6 @@ bash scripts/chaos.sh
 | режим `DEGRADED` сразу после старта | подождать 5–10 с: replay подключается после готовности backend; `docker compose logs replay` |
 | `ml_core_ok: false` | `docker compose logs ml-core`; прогнозы при этом идут по правилу с `quality=fallback` |
 | `No such image: ndtp-telemetry-emulator:1.0` | `docker load -i data/ndtp-telemetry-emulator.tar` (см. §4) |
+| `docker load` пишет `unexpected EOF` | в `data/ndtp-telemetry-emulator.tar` указатель Git LFS (134 байта), а не образ: `git lfs install && git lfs pull` или возьмите файл из датасета организаторов |
+| PowerShell ругается на `curl -X POST … -d '{…}'` | используйте `curl.exe` и экранируйте кавычки: `curl.exe -X POST http://localhost:8000/api/v1/replay/control -H "Content-Type: application/json" -d '{\"start_at\": \"2026-01-06T07:25:00\"}'` или Swagger (`/docs` → Try it out) |
 | остановить всё | `docker compose --profile emulator down` |
