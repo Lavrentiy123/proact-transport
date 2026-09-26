@@ -43,9 +43,8 @@ class LiveHub(Hub):
         self.server = NdtpServer(self.on_frame, self.s.ndtp_host, self.s.ndtp_port, self.s.ndtp_idle_timeout_s)
         self.started_wall = time.time()
         self.forecasts: dict = {}          # tr_id -> Forecast (заполняет тик)
-        self.alerts_by_tr: dict = {}       # tr_id -> Alert
-        self.alerts_closed: list = []      # снятые/решённые алерты
-        self.ticker = None                 # компонент тика (шаг 5)
+        from .ticker import Ticker
+        self.ticker = Ticker(self)
         self.dropped_out_of_window = 0
         self.replay = None                 # replay внутри процесса (REPLAY_INPROCESS=1)
         self._replay_task = None
@@ -146,7 +145,7 @@ class LiveHub(Hub):
         return [v for v in out if v is not None]
 
     def alerts(self, status: str | None = "active") -> list[Alert]:
-        pool = list(self.alerts_by_tr.values()) + list(self.alerts_closed)
+        pool = list(self.ticker.book.active.values()) + list(self.ticker.book.closed)
         out = [a for a in pool if status in (None, "", "all") or a.status == status]
         return sorted(out, key=lambda a: a.priority, reverse=True)
 
@@ -194,10 +193,10 @@ class LiveHub(Hub):
         if self.fleet is not None:
             self.fleet.reset()
         self.forecasts.clear()
-        self.alerts_by_tr.clear()
-        self.alerts_closed.clear()
-        if self.ticker is not None:
-            self.ticker.reset()
+        self.ticker.reset()
+
+    def journal_csv(self) -> str | None:
+        return self.ticker.journal.to_csv()
 
     def snapshot(self) -> WsMessage:
         return WsMessage(type="snapshot", sim_time=self.clock.now().to_pydatetime(), vehicles=self.vehicles(),

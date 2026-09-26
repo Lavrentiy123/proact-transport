@@ -81,6 +81,10 @@ class Hub:
     def snapshot(self) -> WsMessage:
         raise NotImplementedError
 
+    def journal_csv(self) -> str | None:
+        """Журнал прогнозов в CSV (``None`` — журнала нет)."""
+        return None
+
 
 class StubHub(Hub):
     """ЗАГЛУШКА: данные из ``contracts/examples/ws_snapshot.json``, без потока и без модели.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from contracts.schemas import (ActionRequest, ActionResponse, Alert, HorizonMetrics, SystemStatus, TrackResponse,
                                VehicleState)
@@ -81,3 +81,13 @@ def horizon(request: Request) -> HorizonMetrics:
              summary="Скорость и начальный момент воспроизведения исторического дня")
 def replay_control(request: Request, req: ReplayControl) -> SystemStatus:
     return _hub(request).replay_control(req)
+
+
+@router.get("/api/v1/journal.csv", response_class=PlainTextResponse, tags=["metrics"],
+            summary="Журнал прогнозов потока (CSV): горизонт, прогноз, факт из детектора прибытий")
+def journal_csv(request: Request):
+    """Колонка ``sample_id`` = ``{tr_id}_{T}`` — как в ``validate/points.csv`` (сабмит из потока)."""
+    body = _hub(request).journal_csv()
+    if body is None:
+        raise HTTPException(status_code=404, detail="журнал есть только в живом режиме")
+    return PlainTextResponse(body, media_type="text/csv; charset=utf-8")
