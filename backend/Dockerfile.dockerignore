@@ -1,0 +1,10 @@
+# Используется BuildKit только для backend/Dockerfile (контекст — корень репозитория)
+**
+!backend/
+!contracts/
+!features/
+!data/test/schedule.csv
+!data/test/traffic.csv
+**/__pycache__
+**/*.pyc
+backend/Dockerfile*
