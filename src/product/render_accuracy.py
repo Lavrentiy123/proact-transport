@@ -25,6 +25,26 @@ def score_of(mae: float) -> float:
     return (SCORE_ZERO_MAE - mae) / (SCORE_ZERO_MAE - SCORE_MAX_MAE)
 
 
+def lb_value(journal: Path | None = None) -> float | None:
+    """Лучший скор LB из журнала сабмитов или ``None``, если ещё не вписан."""
+    s = best_lb(journal) if journal else best_lb()
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def lb_sentence(lobo_mae: float) -> str:
+    """Фраза заметок докладчика про порог — только с тем, что уже известно (скор LB, LOBO)."""
+    lb = lb_value()
+    verdict = ("это потолок шкалы и максимум баллов" if lb is not None and lb >= 0.995 else
+               "это максимум баллов" if lb is not None and lb >= 0.70 else "ниже порога максимального балла")
+    site = f"на сайте скор {lb:.2f} — {verdict}" if lb is not None else "скор на сайте впишем после загрузки"
+    unseen = ("на незнакомом автобусе проходим и его" if lobo_mae <= 74.2 else
+              "на незнакомом автобусе держимся у самой границы — это честная цена переноса на новый борт")
+    return f"{site}; {unseen}.»"
+
+
 def best_lb(journal: Path = ROOT / "submissions" / "journal.csv") -> str:
     """Лучший скор LB из журнала (заполняет пользователь) или поле для заполнения."""
     if not journal.exists():
@@ -89,6 +109,14 @@ def render(card: dict) -> str:
     causes = oe.get("causes_pct", {})
     n = card["n_points"]
     acc = rows_accuracy(card)
+    lb = lb_value()
+    lb_note = ([] if lb is None else [
+        f"- **Платформа показала скор {lb:.2f}** (сабмит m_ds, первая же попытка) — "
+        + ("верх шкалы: " if lb >= 0.995 else "")
+        + ("максимум баллов критерия 1 (≥ 0.70 = 6 из 6). " if lb >= 0.70 else "ниже порога максимального балла. ")
+        + (f"По нашей оценке шкалы official MAE {fmt(ds['official_mae'])} с дало бы {score_of(ds['official_mae']):.2f}: "
+           "шкала платформы упирается в 1 раньше. Дальнейшие загрузки балл не поднимут — попытки на подгонку под "
+           "151 точку не тратим." if lb >= 0.995 else "")])
     lines = [
         "# Слайды «Данные и точность»",
         "",
@@ -116,7 +144,9 @@ def render(card: dict) -> str:
         "|---|---|---|",
     ] + [f"| {a} | {b} | {c} |" for a, b, c in acc] + [
         "",
-        "- Шкала платформы: скор = (108.1 − MAE) / 48.1; **0.70 = MAE 74.2 с** (максимум баллов критерия).",
+        "- Оценка шкалы платформы: скор ≈ (108.1 − MAE) / 48.1; **0.70 ≈ MAE 74.2 с** (максимум баллов критерия). Скор "
+        "в строках не по validate — условный пересчёт MAE по этой шкале; настоящий скор — только строка «Скор на сайте».",
+    ] + lb_note + [
         f"- m_ds: {ds['iterations']} деревьев × 5 сидов, 34 признака; вариант сабмита — "
         f"{'с признаками' if ds['submission_variant'] == 'tod' else 'без признаков'} времени суток.",
         "- Шум оценки на 151 точке validate: SE(MAE) ≈ 8.9 с — поэтому модель выбираем по LOBO, а не по LB.",
@@ -126,9 +156,7 @@ def render(card: dict) -> str:
         "**Заметки докладчика (30 с):** «Бейзлайн "
         f"{fmt(card['baselines']['official_cur_dev'])} секунды, наша модель — {fmt(ds['official_mae'])} на тесте организаторов "
         f"и {fmt(ds['lobo_mae'])} при честной проверке на незнакомом автобусе. Порог максимального балла — 74.2 секунды: "
-        + ("мы проходим его и на сайте, и на незнакомом автобусе.»" if ds["lobo_mae"] <= 74.2 else
-           "на сайте (тот же день и те же борта) мы проходим его с запасом, а на незнакомом автобусе держимся у самой "
-           "границы — это честная цена переноса на новый борт.»"),
+        + (lb_sentence(ds["lobo_mae"])),
         "",
         "## Слайд 3. Горизонт и причины",
         "",
@@ -150,6 +178,13 @@ def render(card: dict) -> str:
         if oos:
             lines.append(f"- Онлайн-прогноз для незнакомого борта: MAE {fmt(oos['online_mae_model_s'])} с против "
                          f"{fmt(oos['online_mae_baseline_s'])} с у бейзлайна «восстановленное отклонение».")
+        if oe.get("share_issued_before_actual_arrival") is not None:
+            early = (f"; из {oos['late_events']} реальных опозданий > 2 мин незнакомого борта модель заранее предсказала "
+                     f"{100 * oos['late_warned_share']:.0f} %, точность предупреждений {100 * oos['warning_precision']:.0f} %"
+                     if oos.get("late_warned_share") is not None else "")
+            lines.append(f"- **Не задним числом:** {100 * oe['share_issued_before_actual_arrival']:.0f} % прогнозов выданы до "
+                         f"фактического прибытия (минимальный запас {oe['actual_lead_min_s']:.0f} с, медианный "
+                         f"{oe['actual_lead_p50_s'] / 60:.1f} мин){early}.")
         cal = card["m_online"].get("interval_q10_q90_coverage_lobo_calibrated")
         lines += [
             (f"- Интервал q10–q90 на незнакомом борту накрывает факт в {100 * cal:.0f} % случаев (калибровка по LOBO)."
