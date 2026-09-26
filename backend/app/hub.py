@@ -21,6 +21,19 @@ ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE_SNAPSHOT = ROOT / "contracts" / "examples" / "ws_snapshot.json"
 
 
+class SystemStatusEx(SystemStatus):
+    """``SystemStatus`` из контракта + необязательные счётчики приёма NDTP (контракт не меняется:
+    новые необязательные поля разрешены правилом ``contracts/README.md``, модель объявлена в backend)."""
+
+    ndtp_connections_total: int | None = None
+    ndtp_packets_total: int | None = Field(None, description="realtime-пакетов принято")
+    ndtp_nav_fixes_total: int | None = None
+    ndtp_crc_errors_total: int | None = None
+    ndtp_garbage_bytes_total: int | None = None
+    unknown_units: int | None = Field(None, description="терминалов без расписания (только на карте)")
+    predictor: str | None = Field(None, description="чем считается прогноз: ml-core | fallback-rule | none")
+
+
 class ReplayControl(BaseModel):
     """Тело ``POST /api/v1/replay/control`` (пример из ``contracts/README.md``)."""
 
@@ -32,6 +45,12 @@ class Hub:
     """Что backend умеет отдавать наружу. Все методы возвращают модели ``contracts.schemas``."""
 
     is_stub = False
+
+    async def start(self) -> None:
+        """Запуск фоновых компонентов (TCP-сервер, тик); у заглушки — ничего."""
+
+    async def stop(self) -> None:
+        """Остановка фоновых компонентов."""
 
     def ready(self) -> tuple[bool, str]:
         """``(готов, причина)`` для ``/ready``."""

@@ -26,11 +26,12 @@ def _env_flag(name: str, default: str = "0") -> bool:
 
 
 def make_hub() -> Hub:
-    """Выбирает источник данных по ``BACKEND_STUB``."""
-    if _env_flag("BACKEND_STUB", "1"):
+    """Выбирает источник данных по ``BACKEND_STUB`` (по умолчанию — живой режим)."""
+    if _env_flag("BACKEND_STUB", "0"):
         log.warning("BACKEND_STUB=1: API отдаёт заглушку из contracts/examples/ws_snapshot.json")
         return StubHub()
-    raise RuntimeError("живой режим ещё не реализован: запустите с BACKEND_STUB=1")
+    from .live import LiveHub
+    return LiveHub()
 
 
 def create_app(hub: Hub | None = None, ws_period_s: float | None = None) -> FastAPI:
@@ -45,12 +46,14 @@ def create_app(hub: Hub | None = None, ws_period_s: float | None = None) -> Fast
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.hub = hub if hub is not None else make_hub()
+        await app.state.hub.start()
         app.state.broadcaster = ws.Broadcaster(lambda: app.state.hub.snapshot().model_dump_json(), period)
         await app.state.broadcaster.start()
         try:
             yield
         finally:
             await app.state.broadcaster.stop()
+            await app.state.hub.stop()
 
     app = FastAPI(
         title="ПроАкт.Транспорт — backend",
