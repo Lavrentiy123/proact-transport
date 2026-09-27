@@ -12,6 +12,8 @@
 .brand-name span { color: var(--text-secondary); }
 .mode-pill { flex: none; }
 .source-note { color: var(--text-tertiary); font-size: var(--fs-12); white-space: nowrap; }
+/* The note only fits next to the counters and controls on wide screens; the pill title keeps it elsewhere. */
+@media (max-width: 1679px) { .source-note { display: none; } }
 .header-time { flex: none; gap: var(--sp-1); color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: var(--fw-semibold); font-size: var(--fs-15); white-space: nowrap; }
 .header-time svg { color: var(--text-tertiary); }
 .header-time span { color: var(--text-tertiary); font-family: var(--font-mono); font-size: var(--fs-mono); font-weight: var(--fw-medium); letter-spacing: var(--ls-mono); }

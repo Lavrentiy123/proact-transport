@@ -21,6 +21,9 @@ button, select, input { font: inherit; color: inherit; letter-spacing: inherit; 
 button { cursor: pointer; }
 button:disabled, [aria-disabled="true"] { cursor: not-allowed; }
 :where(a, button, select, input, summary, [tabindex]):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* WCAG 2.5.8: every pointer target is at least 24 px tall. */
+summary, input[type="range"] { min-height: 24px; }
+summary { display: list-item; line-height: 24px; }
 a { color: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 /* Figures that are compared across rows or tick every second keep a fixed width. */

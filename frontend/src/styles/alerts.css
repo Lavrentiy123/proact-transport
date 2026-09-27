@@ -15,7 +15,7 @@
 .alert-item .stale-tag { justify-self: start; }
 .alerts-panel .ui-panel-title { font-size: var(--fs-15); }
 .alerts-panel .ui-panel-header { padding-bottom: var(--sp-2); }
-.alerts-tools { display: flex; align-items: center; gap: var(--sp-2); }
-.alerts-tools .alerts-search { flex: 1; min-width: 0; }
+.alerts-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.alerts-tools .alerts-search { flex: 1 1 100%; min-width: 0; }
 .alerts-tools .alerts-filters { flex: none; margin-top: 0; }
 .alerts-tools .alerts-filters .ui-button { flex: none; padding-inline: var(--sp-2); }
