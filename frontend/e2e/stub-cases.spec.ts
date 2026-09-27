@@ -69,6 +69,35 @@ test('long-track: 35 остановок строят диаграмму', async 
   await expect(marey(page, 131672).getByRole('img', { name: 'Линия плана, наблюдения и диапазон прогноза' })).toBeVisible()
 })
 
+// Live routes stop every minute or two and share plan minutes; the dense variant packs 18 stops into 9 minutes, then spreads the rest.
+for (const [width, height] of [[1440, 900], [768, 1024], [375, 812]] as const) for (const dense of [false, true]) {
+  test(`long-track${dense ? ' (сгущение остановок)' : ''}: подписи оси времени не пересекаются и не повторяются на ${width} px`, async ({ page, stub }) => {
+    await page.setViewportSize({ width, height })
+    await stub.start({ STUB_CASE: 'long-track' })
+    if (dense) await page.route('**/api/v1/tracks/131672', async (route) => {
+      const track = await (await route.fetch()).json()
+      const first = Date.parse(`${track.stops[0].time_plan}Z`)
+      track.stops = track.stops.map((stop: { time_plan: string }, index: number) => ({ ...stop, time_plan: new Date(first + (index < 18 ? index * 30 : 510 + (index - 17) * 180) * 1000).toISOString().slice(0, 19) }))
+      await route.fulfill({ json: track })
+    })
+    await page.goto('/')
+    await expect(connectionPill(page, 'LIVE')).toBeVisible()
+    await vehiclePicker(page).selectOption('131672')
+    const chart = marey(page, 131672).getByRole('img', { name: 'Линия плана, наблюдения и диапазон прогноза' })
+    await expect(chart).toBeVisible()
+    const labels = await chart.evaluate((svg) => [...svg.querySelectorAll('text.marey-axis[text-anchor="middle"]')].map((text) => {
+      const rect = text.getBoundingClientRect()
+      return { text: text.textContent, left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
+    }))
+    expect(labels.length).toBeGreaterThanOrEqual(2)
+    const overlaps = labels.flatMap((a, index) => labels.slice(index + 1)
+      .filter((b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom)
+      .map((b) => `${a.text}/${b.text}`))
+    expect(overlaps).toEqual([])
+    expect(new Set(labels.map((label) => label.text)).size).toBe(labels.length)
+  })
+}
+
 test('100 бортов: счётчики и карта учитывают все борта потока', async ({ page, stub }) => {
   await stub.start({ STUB_VEHICLES: '100' })
   await page.goto('/')
