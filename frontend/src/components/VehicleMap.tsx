@@ -11,6 +11,7 @@ import { validCoordinate } from '../utils/geo'
 import { contractTimeMs } from '../utils/time'
 import { RISK, riskMeta } from '../theme/risk'
 import { cssToken } from '../theme/tokens'
+import { Button, EmptyState, RiskMark } from '../ui'
 
 interface Props {
   source: 'demo' | 'live'
@@ -474,7 +475,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       <div className="map-topline">
         <span><Layers3 size={15} /> Карта маршрутов</span>
         <div className="map-topline-actions">
-          {vehicles.length > 1 && <button className="map-overview-button" type="button" onClick={() => {
+          {vehicles.length > 1 && <Button className="map-overview-button" onClick={() => {
             userMovedRef.current = false
             if (viewMode === 'overview' && selectedTrId != null) setViewMode('selected')
             else {
@@ -482,7 +483,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
               setViewMode('overview')
               setMapSizeRevision((current) => current + 1)
             }
-          }}>{viewMode === 'overview' && selectedTrId != null ? 'К маршруту' : 'Все борта'}</button>}
+          }}>{viewMode === 'overview' && selectedTrId != null ? 'К маршруту' : 'Все борта'}</Button>}
           {vehicles.length > 0 && <label className="map-vehicle-picker">Борт
             <select value={selectedTrId ?? ''} onChange={(event) => { setOverlappingIds([]); setViewMode('selected'); onSelect(Number(event.target.value)) }} aria-label="Выбрать борт на карте">
               <option value="" disabled>Выберите</option>
@@ -494,15 +495,16 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       </div>
       <div className="map-location-label"><Compass size={15} /> {source === 'demo' ? 'МОСКВА · ДЕМО-ДАННЫЕ' : 'МАРШРУТ · ДАННЫЕ ПОТОКА'}</div>
       <div className="map-legend">
-        {(['red', 'yellow', 'green', 'none'] as const).map((risk) => <span key={risk}><i className={`legend-dot risk-${risk}`} />{RISK[risk].label}</span>)}
+        {(['red', 'yellow', 'green', 'none'] as const).map((risk) => <span key={risk}><RiskMark variant="marker" risk={risk} />{RISK[risk].label}</span>)}
         <span><i className="legend-dot legend-target" />Целевая остановка</span>
         <span className="map-cluster-legend">Группа: цвет по высшему риску</span>
       </div>
       <div className="map-route-hint"><Navigation2 size={15} /> Нажмите на борт, чтобы увидеть маршрут</div>
       <div className="map-count" role="status">{loading ? 'Ожидаем снимок' : `${vehicles.length} в снимке · ${validVehicles.length} ${mapUnavailable ? 'с допустимой позицией' : 'на карте'}`}{hiddenCount > 0 && <span> · {hiddenCount} без допустимой позиции (включая 0,0)</span>}{vehicles.some((item) => item.stale) && <span> · данные устарели</span>}</div>
-      {overlappingIds.length > 1 && <div className="map-overlap-list" role="group" aria-label="Борта в выбранной точке"><strong>В этой точке несколько бортов</strong><div>{overlappingIds.map((trId) => <button key={trId} type="button" onClick={() => { setOverlappingIds([]); setViewMode('selected'); onSelect(trId) }}>Борт {trId}</button>)}</div><button className="map-overlap-close" type="button" onClick={() => setOverlappingIds([])}>Закрыть</button></div>}
-      {mapUnavailable && <div className="map-unavailable"><strong>Карта недоступна в этом браузере</strong><span>Выберите борт из списка. Карточка и предупреждения продолжают работать.</span><div className="map-fallback-list">{vehicles.map((item) => <button type="button" key={item.tr_id} onClick={() => onSelect(item.tr_id)} aria-pressed={selectedTrId === item.tr_id}>Борт {item.tr_id} · {riskMeta(item.forecast?.risk).label.toLowerCase()}</button>)}</div></div>}
-      {vehicles.length === 0 && !mapUnavailable && <div className="map-empty"><MapPin size={30} /><strong>{loading ? 'Ожидаем данные о бортах' : 'Бортов в снимке нет'}</strong><span>{loading ? 'Положение появится после получения потока.' : 'Текущий снимок содержит пустой список бортов.'}</span></div>}
+      {overlappingIds.length > 1 && <div className="map-overlap-list" role="group" aria-label="Борта в выбранной точке"><strong>В этой точке несколько бортов</strong><div>{overlappingIds.map((trId) => <Button key={trId} onClick={() => { setOverlappingIds([]); setViewMode('selected'); onSelect(trId) }}>Борт {trId}</Button>)}</div><Button variant="ghost" className="map-overlap-close" onClick={() => setOverlappingIds([])}>Закрыть</Button></div>}
+      {mapUnavailable && <div className="map-unavailable"><strong>Карта недоступна в этом браузере</strong><span>Выберите борт из списка. Карточка и предупреждения продолжают работать.</span><div className="map-fallback-list">{vehicles.map((item) => <Button key={item.tr_id} onClick={() => onSelect(item.tr_id)} aria-pressed={selectedTrId === item.tr_id}>Борт {item.tr_id} · {riskMeta(item.forecast?.risk).label.toLowerCase()}</Button>)}</div></div>}
+      {vehicles.length === 0 && !mapUnavailable && <EmptyState variant="overlay" className="map-empty" icon={<MapPin size={30} />} title={loading ? 'Ожидаем данные о бортах' : 'Бортов в снимке нет'}
+        hint={loading ? 'Положение появится после получения потока.' : 'Текущий снимок содержит пустой список бортов.'} />}
     </section>
   )
 }

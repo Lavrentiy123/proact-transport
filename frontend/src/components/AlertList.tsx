@@ -5,6 +5,7 @@ import { formatCountdown, formatDelay, stopLabel } from '../utils/format'
 import { secondsUntil } from '../utils/time'
 import { displayClock } from '../utils/time'
 import { RISK, riskMeta } from '../theme/risk'
+import { Button, EmptyState, Panel, PanelHeader, RiskMark, StatusDot, StatusPill } from '../ui'
 
 interface Props {
   alerts: Alert[]
@@ -64,52 +65,50 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
   }, [selectedAlertId, visibleOrder])
 
   return (
-    <aside className="panel alerts-panel" aria-label="Лента предупреждений">
-      <div className="panel-heading">
-        <div><span className="eyebrow">Очередь диспетчера</span><h2>Предупреждения</h2></div>
-        <span className="count-badge">{active.length}</span>
-      </div>
+    <Panel as="aside" className="alerts-panel" aria-label="Лента предупреждений">
+      <PanelHeader eyebrow="Очередь диспетчера" title="Предупреждения" actions={<span className="count-badge">{active.length}</span>} />
       <div className="alerts-subheading">По приоритету · прогноз на 10–15 минут</div>
       <div className="alerts-tools">
         <label className="alerts-search"><Search size={15} aria-hidden="true" /><span className="sr-only">Поиск борта по номеру</span><input type="search" inputMode="numeric" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Номер борта" /></label>
         <div className="alerts-filters" role="group" aria-label="Фильтр предупреждений по риску">
-          <button type="button" aria-pressed={riskFilter === 'all'} onClick={() => setRiskFilter('all')}>Все</button>
-          <button type="button" aria-pressed={riskFilter === 'red'} onClick={() => setRiskFilter('red')}>{RISK.red.label}</button>
-          <button type="button" aria-pressed={riskFilter === 'yellow'} onClick={() => setRiskFilter('yellow')}>{RISK.yellow.label}</button>
+          <Button variant="ghost" aria-pressed={riskFilter === 'all'} onClick={() => setRiskFilter('all')}>Все</Button>
+          <Button variant="ghost" aria-pressed={riskFilter === 'red'} onClick={() => setRiskFilter('red')}>{RISK.red.label}</Button>
+          <Button variant="ghost" aria-pressed={riskFilter === 'yellow'} onClick={() => setRiskFilter('yellow')}>{RISK.yellow.label}</Button>
         </div>
       </div>
       {visible.length === 0 ? (
-        <div className="empty-panel"><BellRing size={28} /><strong>{loading ? 'Ожидаем данные' : filtered.length === 0 && active.length > 0 ? 'Ничего не найдено' : 'Активных предупреждений нет'}</strong><span>{loading ? 'Лента появится после получения снимка.' : active.length > 0 ? 'Измените фильтр или номер борта.' : 'Новые предупреждения появятся здесь.'}</span></div>
+        <EmptyState icon={<BellRing size={28} />} title={loading ? 'Ожидаем данные' : filtered.length === 0 && active.length > 0 ? 'Ничего не найдено' : 'Активных предупреждений нет'}
+          hint={loading ? 'Лента появится после получения снимка.' : active.length > 0 ? 'Измените фильтр или номер борта.' : 'Новые предупреждения появятся здесь.'} />
       ) : (
         <div className="alerts-scroll" ref={scrollRef}>
           {visible.map((alert) => {
             const vehicle = vehicles.find((item) => item.tr_id === alert.tr_id)
             const selected = alert.alert_id === selectedAlertId && alert.tr_id === selectedTrId
-            const risk = riskMeta(alert.risk)
+            const riskLabel = riskMeta(alert.risk).label.toLowerCase()
             return (
               <button
                 key={alert.alert_id}
                 ref={selected ? selectedItemRef : undefined}
                 className={`alert-item risk-${alert.risk}${selected ? ' selected' : ''}`}
                 onClick={() => onSelect(alert.tr_id, alert.alert_id)}
-                aria-pressed={selected}
-                aria-label={`Событие ${alert.alert_id}: борт ${alert.tr_id}, ${risk.label.toLowerCase()}, ${formatDelay(alert.forecast.delay_pred_s)} к ${stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}, создано ${displayClock(alert.created_at)}`}
+                aria-current={selected || undefined}
+                aria-label={`Событие ${alert.alert_id}: борт ${alert.tr_id}, ${riskLabel}, ${formatDelay(alert.forecast.delay_pred_s)} к ${stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}, создано ${displayClock(alert.created_at)}`}
               >
                 <div className="alert-item-top">
-                  <span className={`risk-indicator risk-${alert.risk}`}><risk.icon size={13} /></span>
+                  <RiskMark risk={alert.risk} />
                   <span className="alert-vehicle">Борт {alert.tr_id}</span>
                   <ChevronRight size={16} className="alert-chevron" />
                 </div>
                 <div className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)} <small>к {stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}</small></div>
                 <div className="alert-item-bottom"><span>{alert.forecast.cause.text}</span><span>через {formatCountdown(secondsUntil(alert.forecast.target_time_plan, simTime))}</span></div>
-                {vehicle?.stale && <span className="stale-tag">Данные устарели</span>}
+                {vehicle?.stale && <StatusPill state="stale" className="stale-tag">Данные устарели</StatusPill>}
               </button>
             )
           })}
-          {riskFilter === 'all' && query.trim() === '' && filtered.length > 7 && <button className="alerts-more" type="button" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Свернуть список' : `Показать все · ещё ${filtered.length - 7} ${alertWord(filtered.length - 7)}`}</button>}
+          {riskFilter === 'all' && query.trim() === '' && filtered.length > 7 && <Button block className="alerts-more" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Свернуть список' : `Показать все · ещё ${filtered.length - 7} ${alertWord(filtered.length - 7)}`}</Button>}
         </div>
       )}
-      <div className="panel-footer"><span className={`live-dot${feed === 'live' ? '' : feed === 'degraded' ? ' is-degraded' : ' is-paused'}`} />{feed === 'live' ? 'Лента обновляется вслед за потоком' : feed === 'degraded' ? 'Телеметрии нет: прогнозы по расписанию' : 'Лента не обновляется: нет свежих данных'}<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
-    </aside>
+      <div className="panel-footer"><StatusDot state={feed === 'live' ? 'live' : feed === 'degraded' ? 'degraded' : 'waiting'} className="live-dot" />{feed === 'live' ? 'Лента обновляется вслед за потоком' : feed === 'degraded' ? 'Телеметрии нет: прогнозы по расписанию' : 'Лента не обновляется: нет свежих данных'}<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
+    </Panel>
   )
 }

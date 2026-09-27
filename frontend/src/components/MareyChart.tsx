@@ -5,6 +5,7 @@ import { describeDelay, stopLabel } from '../utils/format'
 import { advanceContractTime, contractTimeMs, displayClock } from '../utils/time'
 import { planTimesOrdered } from '../utils/track'
 import { riskKey } from '../theme/risk'
+import { Panel, PanelHeader } from '../ui'
 
 interface Props { source: 'demo' | 'live'; track: TrackResponse | null; forecast: Forecast | null; simTime: string; loading: boolean; routeError: boolean }
 
@@ -48,26 +49,30 @@ function closestDistance(lat: number, lon: number, stops: TrackResponse['stops']
   return along
 }
 
+function MareyPlaceholder({ text }: { text: string }) {
+  return <Panel className="marey-panel"><PanelHeader compact className="marey-heading" titleAs="strong" icon={<BarChart3 size={17} />} title="Диаграмма движения"><span>{text}</span></PanelHeader></Panel>
+}
+
 export default function MareyChart({ source, track, forecast, simTime, loading, routeError }: Props) {
   if (!track || track.stops.length < 2) {
-    return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>{loading ? 'Загрузка маршрута…' : routeError ? 'Маршрут недоступен; положение и прогноз сохранены' : 'Выберите борт с маршрутом'}</span></div></section>
+    return <MareyPlaceholder text={loading ? 'Загрузка маршрута…' : routeError ? 'Маршрут недоступен; положение и прогноз сохранены' : 'Выберите борт с маршрутом'} />
   }
 
   const sorted = [...track.stops].sort((a, b) => a.seq - b.seq)
   const stops = source === 'live' ? windowStops(sorted, simTime, forecast?.target_stop_id) : sorted
   if (stops.length < 2) {
-    return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>Нет плановых остановок рядом с текущим временем</span></div></section>
+    return <MareyPlaceholder text="Нет плановых остановок рядом с текущим временем" />
   }
   const planTimes = stops.map((stop) => contractTimeMs(stop.time_plan))
   if (!planTimesOrdered(planTimes)) {
-    return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>Некорректный порядок плановых остановок</span></div></section>
+    return <MareyPlaceholder text="Некорректный порядок плановых остановок" />
   }
   const distances = stops.map((_, index) => index === 0 ? 0 :
     stops.slice(1, index + 1).reduce((sum, current, offset) =>
       sum + haversineMeters(stops[offset].lon, stops[offset].lat, current.lon, current.lat), 0))
   const totalDistance = distances.at(-1) ?? 0
   if (!Number.isFinite(totalDistance) || totalDistance < 1) {
-    return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>Недостаточно расстояния между остановками</span></div></section>
+    return <MareyPlaceholder text="Недостаточно расстояния между остановками" />
   }
   const targetIndex = stops.findIndex((stop) => stop.stop_id === forecast?.target_stop_id)
   const planTargetTime = forecast ? contractTimeMs(forecast.target_time_plan) : Number.NaN
@@ -100,8 +105,11 @@ export default function MareyChart({ source, track, forecast, simTime, loading, 
   const forecastRisk = `risk-${riskKey(forecast?.risk)}`
 
   return (
-    <section className="marey-panel" aria-label={`Диаграмма движения борта ${track.tr_id}`}>
-      <div className="marey-heading"><div><BarChart3 size={18} /><strong>Движение борта {track.tr_id}</strong><span>Время → · расстояние по маршруту ↑</span></div><div className="marey-legend"><span className="plan-line">План</span><span className="fact-line">Наблюдение</span><span className={`forecast-line ${forecastRisk}`}>Прогноз q10–q90</span></div></div>
+    <Panel className="marey-panel" aria-label={`Диаграмма движения борта ${track.tr_id}`}>
+      <PanelHeader compact className="marey-heading" titleAs="strong" icon={<BarChart3 size={18} />} title={`Движение борта ${track.tr_id}`}
+        actions={<div className="marey-legend"><span className="plan-line">План</span><span className="fact-line">Наблюдение</span><span className={`forecast-line ${forecastRisk}`}>Прогноз q10–q90</span></div>}>
+        <span>Время → · расстояние по маршруту ↑</span>
+      </PanelHeader>
       <div className="marey-chart-scroll"><svg className="marey-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Линия плана, наблюдения и диапазон прогноза">
         {[0, .25, .5, .75, 1].map((ratio) => <g key={ratio}><line className="marey-grid" x1={left} x2={right} y1={y(totalDistance * ratio)} y2={y(totalDistance * ratio)} strokeDasharray="4 5" /><text className="marey-axis" x={left - 12} y={y(totalDistance * ratio) + 4} textAnchor="end" fontSize="12">{(totalDistance * ratio / 1000).toFixed(1)} км</text></g>)}
         {stops.map((stop, index) => <g key={`${stop.stop_id}-${stop.seq}`}><title>{stopLabel(stop.name, stop.stop_id)} · план {displayClock(stop.time_plan)}</title><line className="marey-grid" x1={x(contractTimeMs(stop.time_plan))} x2={x(contractTimeMs(stop.time_plan))} y1={top} y2={bottom} strokeDasharray="3 7" />{(index % labelEvery === 0 || index === stops.length - 1) && <text className="marey-axis" x={x(contractTimeMs(stop.time_plan))} y="160" textAnchor="middle" fontSize="12">{displayClock(stop.time_plan).slice(0, 5)}</text>}</g>)}
@@ -112,6 +120,6 @@ export default function MareyChart({ source, track, forecast, simTime, loading, 
       </svg></div>
       <div className="marey-footnote">{source === 'demo' ? 'Демонстрационный маршрут.' : 'Окно −30…+40 мин вокруг времени потока; маршрут и трек обновляются каждые 15 с.'} {stopLabel(stops[0].name, stops[0].stop_id)} → {stopLabel(stops.at(-1)!.name, stops.at(-1)!.stop_id)}. {orderedTrail ? 'Наблюдения до текущего времени проецируются на маршрут.' : 'Наблюдения скрыты: неверный порядок времени.'} {forecast && targetIndex < 0 ? 'Целевая остановка прогноза отсутствует в маршруте.' : ''}</div>
       <p className="sr-only">План от {displayClock(stops[0].time_plan)} до {displayClock(stops.at(-1)!.time_plan)}. Последнее наблюдение {observedTrail.length > 0 ? displayClock(observedTrail.at(-1)![0]) : 'отсутствует'}. {forecastArrival && targetIndex >= 0 ? `${describeDelay(forecast!.delay_pred_s)} к остановке ${stopLabel(forecast!.target_stop_name, forecast!.target_stop_id)}, прогноз прибытия ${displayClock(forecastArrival)}.` : 'Прогноз на остановке маршрута отсутствует.'}</p>
-    </section>
+    </Panel>
   )
 }
