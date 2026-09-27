@@ -4,6 +4,7 @@ import { haversineMeters } from '../utils/geo'
 import { describeDelay, stopLabel } from '../utils/format'
 import { advanceContractTime, contractTimeMs, displayClock } from '../utils/time'
 import { planTimesOrdered } from '../utils/track'
+import { riskKey } from '../theme/risk'
 
 interface Props { source: 'demo' | 'live'; track: TrackResponse | null; forecast: Forecast | null; simTime: string; loading: boolean; routeError: boolean }
 
@@ -96,17 +97,18 @@ export default function MareyChart({ source, track, forecast, simTime, loading, 
   const q90X = forecast ? x(planTargetTime + forecast.delay_q90_s * 1000) : Number.NaN
   const labelEvery = Math.max(1, Math.ceil(stops.length / 6))
   const forecastArrival = forecast ? advanceContractTime(forecast.target_time_plan, forecast.delay_pred_s) : null
+  const forecastRisk = `risk-${riskKey(forecast?.risk)}`
 
   return (
     <section className="marey-panel" aria-label={`Диаграмма движения борта ${track.tr_id}`}>
-      <div className="marey-heading"><div><BarChart3 size={18} /><strong>Движение борта {track.tr_id}</strong><span>Время → · расстояние по маршруту ↑</span></div><div className="marey-legend"><span className="plan-line">План</span><span className="fact-line">Наблюдение</span><span className="forecast-line">Прогноз q10–q90</span></div></div>
+      <div className="marey-heading"><div><BarChart3 size={18} /><strong>Движение борта {track.tr_id}</strong><span>Время → · расстояние по маршруту ↑</span></div><div className="marey-legend"><span className="plan-line">План</span><span className="fact-line">Наблюдение</span><span className={`forecast-line ${forecastRisk}`}>Прогноз q10–q90</span></div></div>
       <div className="marey-chart-scroll"><svg className="marey-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Линия плана, наблюдения и диапазон прогноза">
-        {[0, .25, .5, .75, 1].map((ratio) => <g key={ratio}><line x1={left} x2={right} y1={y(totalDistance * ratio)} y2={y(totalDistance * ratio)} stroke="#2d4552" strokeDasharray="4 5" /><text x={left - 12} y={y(totalDistance * ratio) + 4} textAnchor="end" fill="#8ca6b2" fontSize="10">{(totalDistance * ratio / 1000).toFixed(1)} км</text></g>)}
-        {stops.map((stop, index) => <g key={`${stop.stop_id}-${stop.seq}`}><title>{stopLabel(stop.name, stop.stop_id)} · план {displayClock(stop.time_plan)}</title><line x1={x(contractTimeMs(stop.time_plan))} x2={x(contractTimeMs(stop.time_plan))} y1={top} y2={bottom} stroke="#2d4552" strokeDasharray="3 7" />{(index % labelEvery === 0 || index === stops.length - 1) && <text x={x(contractTimeMs(stop.time_plan))} y="160" textAnchor="middle" fill="#8ca6b2" fontSize="10">{displayClock(stop.time_plan).slice(0, 5)}</text>}</g>)}
-        <polyline points={planPoints} fill="none" stroke="#79c4d8" strokeWidth="2.5" strokeDasharray="7 5" />
-        <polyline points={observedPoints} fill="none" stroke="#efbe70" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        {forecast && targetIndex >= 0 && Number.isFinite(forecastX) && <g><line x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} stroke="#fa8c85" strokeWidth="10" strokeOpacity=".3" strokeLinecap="round" /><line x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} stroke="#ff9990" strokeWidth="2" /><circle cx={forecastX} cy={y(targetDistance)} r="6" fill="#ff897f" stroke="#fff" strokeWidth="2" /><text x={Math.min(forecastX + 12, right - 150)} y={y(targetDistance) - 12} fill="#ffc3ae" fontSize="11">{describeDelay(forecast.delay_pred_s)}</text></g>}
-        <line x1={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} x2={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} y1={top} y2={bottom} stroke="#f3d693" strokeOpacity=".5" />
+        {[0, .25, .5, .75, 1].map((ratio) => <g key={ratio}><line className="marey-grid" x1={left} x2={right} y1={y(totalDistance * ratio)} y2={y(totalDistance * ratio)} strokeDasharray="4 5" /><text className="marey-axis" x={left - 12} y={y(totalDistance * ratio) + 4} textAnchor="end" fontSize="12">{(totalDistance * ratio / 1000).toFixed(1)} км</text></g>)}
+        {stops.map((stop, index) => <g key={`${stop.stop_id}-${stop.seq}`}><title>{stopLabel(stop.name, stop.stop_id)} · план {displayClock(stop.time_plan)}</title><line className="marey-grid" x1={x(contractTimeMs(stop.time_plan))} x2={x(contractTimeMs(stop.time_plan))} y1={top} y2={bottom} strokeDasharray="3 7" />{(index % labelEvery === 0 || index === stops.length - 1) && <text className="marey-axis" x={x(contractTimeMs(stop.time_plan))} y="160" textAnchor="middle" fontSize="12">{displayClock(stop.time_plan).slice(0, 5)}</text>}</g>)}
+        <polyline className="marey-plan" points={planPoints} fill="none" strokeWidth="2.5" strokeDasharray="7 5" />
+        <polyline className="marey-observed" points={observedPoints} fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        {forecast && targetIndex >= 0 && Number.isFinite(forecastX) && <g className={`marey-forecast ${forecastRisk}`}><line className="marey-forecast-range" x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} strokeWidth="10" strokeOpacity=".3" strokeLinecap="round" /><line className="marey-forecast-range" x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} strokeWidth="2" /><circle cx={forecastX} cy={y(targetDistance)} r="6" strokeWidth="2" /><text x={Math.min(forecastX + 12, right - 150)} y={y(targetDistance) - 12} fontSize="12">{describeDelay(forecast.delay_pred_s)}</text></g>}
+        <line x1={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} x2={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} y1={top} y2={bottom} className="marey-now" strokeOpacity=".5" />
       </svg></div>
       <div className="marey-footnote">{source === 'demo' ? 'Демонстрационный маршрут.' : 'Окно −30…+40 мин вокруг времени потока; маршрут и трек обновляются каждые 15 с.'} {stopLabel(stops[0].name, stops[0].stop_id)} → {stopLabel(stops.at(-1)!.name, stops.at(-1)!.stop_id)}. {orderedTrail ? 'Наблюдения до текущего времени проецируются на маршрут.' : 'Наблюдения скрыты: неверный порядок времени.'} {forecast && targetIndex < 0 ? 'Целевая остановка прогноза отсутствует в маршруте.' : ''}</div>
       <p className="sr-only">План от {displayClock(stops[0].time_plan)} до {displayClock(stops.at(-1)!.time_plan)}. Последнее наблюдение {observedTrail.length > 0 ? displayClock(observedTrail.at(-1)![0]) : 'отсутствует'}. {forecastArrival && targetIndex >= 0 ? `${describeDelay(forecast!.delay_pred_s)} к остановке ${stopLabel(forecast!.target_stop_name, forecast!.target_stop_id)}, прогноз прибытия ${displayClock(forecastArrival)}.` : 'Прогноз на остановке маршрута отсутствует.'}</p>

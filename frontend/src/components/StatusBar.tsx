@@ -3,6 +3,7 @@ import type { Scenario } from '../data/scenarios'
 import type { ConnectionState } from '../data/liveTransport'
 import type { HorizonMetrics, WsMessage } from '../types/contracts'
 import { displayClock, displayDay } from '../utils/time'
+import { RISK } from '../theme/risk'
 
 interface Props {
   snapshot: WsMessage
@@ -76,8 +77,8 @@ export default function StatusBar({
         </div>
         <div className="summary-metrics">
           <div className="summary-metric"><BusFront size={19} /><span><strong>{count(vehicles.length)}</strong><small>{source === 'demo' ? 'в демо-снимке' : connected ? 'в потоке' : 'в последнем снимке'}</small></span></div>
-          <div className="summary-metric metric-red"><span className="metric-dot" /><span><strong>{count(red)}</strong><small>критично</small></span></div>
-          <div className="summary-metric metric-yellow"><span className="metric-dot" /><span><strong>{count(yellow)}</strong><small>внимание</small></span></div>
+          <div className="summary-metric metric-red"><span className="metric-dot" /><span><strong>{count(red)}</strong><small>{RISK.red.label.toLowerCase()}</small></span></div>
+          <div className="summary-metric metric-yellow"><span className="metric-dot" /><span><strong>{count(yellow)}</strong><small>{RISK.yellow.label.toLowerCase()}</small></span></div>
           <div className="summary-metric"><Activity size={19} /><span><strong>{hasAlertSnapshot ? alerts.length : '—'}</strong><small>алертов</small></span></div>
           {source === 'live' && horizon && <div className="summary-metric metric-horizon" title={`Сверено с фактическим прибытием: ${horizon.resolved_total} из ${horizon.forecasts_total}`}>
             <Target size={19} /><span><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'прогнозов за 10–15 мин' : 'прогнозов пока нет'}</small></span></div>}

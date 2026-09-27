@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, BellRing, ChevronRight, Search, TriangleAlert } from 'lucide-react'
+import { BellRing, ChevronRight, Search } from 'lucide-react'
 import type { Alert, VehicleState } from '../types/contracts'
 import { formatCountdown, formatDelay, stopLabel } from '../utils/format'
 import { secondsUntil } from '../utils/time'
 import { displayClock } from '../utils/time'
+import { RISK, riskMeta } from '../theme/risk'
 
 interface Props {
   alerts: Alert[]
@@ -73,8 +74,8 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
         <label className="alerts-search"><Search size={15} aria-hidden="true" /><span className="sr-only">Поиск борта по номеру</span><input type="search" inputMode="numeric" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Номер борта" /></label>
         <div className="alerts-filters" role="group" aria-label="Фильтр предупреждений по риску">
           <button type="button" aria-pressed={riskFilter === 'all'} onClick={() => setRiskFilter('all')}>Все</button>
-          <button type="button" aria-pressed={riskFilter === 'red'} onClick={() => setRiskFilter('red')}>Критично</button>
-          <button type="button" aria-pressed={riskFilter === 'yellow'} onClick={() => setRiskFilter('yellow')}>Внимание</button>
+          <button type="button" aria-pressed={riskFilter === 'red'} onClick={() => setRiskFilter('red')}>{RISK.red.label}</button>
+          <button type="button" aria-pressed={riskFilter === 'yellow'} onClick={() => setRiskFilter('yellow')}>{RISK.yellow.label}</button>
         </div>
       </div>
       {visible.length === 0 ? (
@@ -84,6 +85,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
           {visible.map((alert) => {
             const vehicle = vehicles.find((item) => item.tr_id === alert.tr_id)
             const selected = alert.alert_id === selectedAlertId && alert.tr_id === selectedTrId
+            const risk = riskMeta(alert.risk)
             return (
               <button
                 key={alert.alert_id}
@@ -91,10 +93,10 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
                 className={`alert-item risk-${alert.risk}${selected ? ' selected' : ''}`}
                 onClick={() => onSelect(alert.tr_id, alert.alert_id)}
                 aria-pressed={selected}
-                aria-label={`Событие ${alert.alert_id}: борт ${alert.tr_id}, ${alert.risk === 'red' ? 'критично' : alert.risk === 'yellow' ? 'внимание' : 'в графике'}, ${formatDelay(alert.forecast.delay_pred_s)} к ${stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}, создано ${displayClock(alert.created_at)}`}
+                aria-label={`Событие ${alert.alert_id}: борт ${alert.tr_id}, ${risk.label.toLowerCase()}, ${formatDelay(alert.forecast.delay_pred_s)} к ${stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}, создано ${displayClock(alert.created_at)}`}
               >
                 <div className="alert-item-top">
-                  <span className={`risk-indicator risk-${alert.risk}`}>{alert.risk === 'red' ? <TriangleAlert size={13} /> : <ArrowUpRight size={13} />}</span>
+                  <span className={`risk-indicator risk-${alert.risk}`}><risk.icon size={13} /></span>
                   <span className="alert-vehicle">Борт {alert.tr_id}</span>
                   <ChevronRight size={16} className="alert-chevron" />
                 </div>
