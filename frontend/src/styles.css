@@ -19,7 +19,7 @@
 .incident-event-title { display: block; max-width: 24ch; margin-top: var(--sp-1); color: var(--text-secondary); font-size: var(--fs-12); line-height: var(--lh-ui); }
 .count-badge { background: var(--surface-2); border: 1px solid var(--line-subtle); border-radius: var(--r-control); min-width: 28px; text-align: center; padding: var(--sp-1) var(--sp-2); font-size: var(--fs-12); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
 .alerts-search { display: flex; align-items: center; gap: var(--sp-2); min-height: 32px; padding: 0 var(--sp-2); color: var(--text-tertiary); border: 1px solid var(--line-control); border-radius: var(--r-control); background: var(--surface-2); }
-.alerts-search input { width: 100%; min-width: 0; color: var(--text-primary); border: 0; outline: 0; background: transparent; font-size: var(--fs-12); }
+.alerts-search input { width: 100%; min-width: 0; min-height: 24px; color: var(--text-primary); border: 0; outline: 0; background: transparent; font-size: var(--fs-12); }
 .alerts-search:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 .alerts-filters { display: flex; gap: var(--sp-1); margin-top: var(--sp-2); }
 .alerts-filters .ui-button { flex: 1; min-width: 0; padding-inline: var(--sp-1); }
@@ -55,9 +55,9 @@
 }
 @media (max-width: 640px) {
   .connection-details > div { left: 0; right: auto; }
-  .alerts-panel { order: 1; min-height: 0; height: 390px; max-height: 390px; }
+  .alerts-panel { order: 1; min-height: 0; max-height: 390px; }
   .incident-panel { order: 3; max-height: none; }
-  .mobile-map-jump { display: inline-flex; margin-left: auto; color: var(--accent); font-size: var(--fs-12); text-decoration: underline; }
+  .mobile-map-jump { display: inline-flex; align-items: center; min-height: 24px; margin-left: auto; color: var(--accent); font-size: var(--fs-12); text-decoration: underline; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }

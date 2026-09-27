@@ -26,7 +26,7 @@ const colorTokens = ['--bg-canvas', '--surface-1', '--surface-2', '--line-subtle
   '--risk-red-tint', '--risk-yellow-tint', '--risk-green-tint', '--risk-none-tint']
 const forecastRows = [
   { label: 'Прогноз отклонения', value: 'Опоздание 6:12' },
-  { label: 'Диапазон q10–q90', value: '+5:00 – +7:35' },
+  { label: 'Вероятный диапазон', value: '+5:00 – +7:35' },
   { label: 'Обновлён', value: '12:40:00' },
 ]
 

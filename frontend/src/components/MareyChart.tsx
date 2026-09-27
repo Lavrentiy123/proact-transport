@@ -151,7 +151,7 @@ function MareyBody({ source, track, forecast, simTime, loading, routeError, size
   return (
     <Panel className="marey-panel" aria-label={`Диаграмма движения борта ${track.tr_id}`}>
       <PanelHeader compact className="marey-heading" titleAs="strong" icon={<BarChart3 size={16} />} title={`Движение борта ${track.tr_id}`}
-        actions={<div className="marey-legend"><span className="plan-line">План</span><span className="fact-line">Наблюдение</span><span className={`forecast-line ${forecastRisk}`}>Прогноз q10–q90</span></div>}>
+        actions={<div className="marey-legend"><span className="plan-line">План</span><span className="fact-line">Наблюдение</span><span className={`forecast-line ${forecastRisk}`}>Вероятный диапазон</span></div>}>
         <span className="marey-footnote" title={footnote}>{footnote}</span>
       </PanelHeader>
       <div className="marey-plot" ref={plotRef}><svg className="marey-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Линия плана, наблюдения и диапазон прогноза">

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, CloudOff, SignalZero, TriangleAlert } from 'lucide-react'
+import { CheckCircle2, CloudOff, WifiOff, TriangleAlert } from 'lucide-react'
 import AlertList from './components/AlertList'
 import IncidentCard from './components/IncidentCard'
 import MareyChart from './components/MareyChart'
@@ -167,7 +167,7 @@ export default function App() {
         onRestart={() => { setElapsedSeconds(0); setPlaying(scenario !== 'disconnected') }} onSourceChange={changeSource}
       />
       <div className="dashboard-banners">
-      {!connected && <Banner tone="error" className="connection-banner" icon={<SignalZero size={17} />}
+      {!connected && <Banner tone="error" className="connection-banner" icon={<WifiOff size={17} />}
         action={waitingTooLong && <Button onClick={() => changeSource('demo')}>Вернуться в демо</Button>}>{source === 'live'
         ? liveConnection === 'connected' ? waitingTooLong ? 'Данные о бортах не поступают. Проверьте источник или вернитесь в демо.'
           : liveStalled ? 'Данные о бортах не обновляются более 15 секунд. Показан последний снимок.' : 'Соединение установлено. Ожидаем новый снимок с положением бортов.'
