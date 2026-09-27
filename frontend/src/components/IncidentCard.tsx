@@ -4,6 +4,7 @@ import type { ActionResponse, Alert, Forecast, VehicleState } from '../types/con
 import { describeDelay, formatCountdown, formatDelay, formatPercent, stopLabel } from '../utils/format'
 import { advanceContractTime, contractTimeMs, displayClock, secondsUntil } from '../utils/time'
 import WhatIfPanel from './WhatIfPanel'
+import { riskMeta } from '../theme/risk'
 
 export type ActionOutcome = (ActionResponse & { error?: undefined }) | { alert_id: string; error: string }
 
@@ -25,7 +26,6 @@ interface Props {
   hasSchedule?: boolean
 }
 
-const riskNames = { red: 'Критический риск', yellow: 'Требует внимания', green: 'В графике' }
 const qualityNames = { full: 'Полное', degraded: 'Сниженное', fallback: 'Резервное' }
 const qualityNotes = {
   full: null,
@@ -67,7 +67,7 @@ export default function IncidentCard({ source, connected, vehicle, alert, foreca
       <div className="panel-heading"><div><span className="eyebrow">Детали события</span><h2>Борт {vehicle?.tr_id ?? alert?.tr_id}</h2>{alert && <span className="incident-event-title">{alert.title} · {displayClock(alert.created_at)}</span>}</div><BusFront size={22} className="heading-icon" /></div>
       {forecast ? (
         <>
-          <div className={`incident-risk-band risk-${risk}`}><ShieldAlert size={18} /><span>{risk ? riskNames[risk] : 'Риск не определен'}</span><strong title={describeDelay(forecast.delay_pred_s)}>{formatDelay(forecast.delay_pred_s)}</strong></div>
+          <div className={`incident-risk-band risk-${risk}`}><ShieldAlert size={18} /><span>{riskMeta(risk).long}</span><strong title={describeDelay(forecast.delay_pred_s)}>{formatDelay(forecast.delay_pred_s)}</strong></div>
           {qualityNote && <div className="quality-note"><Info size={14} /> {qualityNote}</div>}
           <div className="incident-section target-section">
             <span className="eyebrow">Участок и целевая остановка</span>

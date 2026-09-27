@@ -9,6 +9,8 @@ import type { Risk, TrackResponse, VehicleState } from '../types/contracts'
 import { formatDelay, stopLabel } from '../utils/format'
 import { validCoordinate } from '../utils/geo'
 import { contractTimeMs } from '../utils/time'
+import { RISK, riskMeta } from '../theme/risk'
+import { cssToken } from '../theme/tokens'
 
 interface Props {
   source: 'demo' | 'live'
@@ -27,18 +29,18 @@ interface Props {
 
 const emptyPoints: FeatureCollection<Point> = { type: 'FeatureCollection', features: [] }
 const emptyLines: FeatureCollection<LineString> = { type: 'FeatureCollection', features: [] }
-const riskColor: maplibregl.ExpressionSpecification = ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#8ca4b1']
 // Backend returns the whole-day schedule; only the stretch around "now" is drawn.
 const NETWORK_BACK_MS = 15 * 60_000
 const NETWORK_AHEAD_MS = 45 * 60_000
 const basemapStyleUrl = import.meta.env.VITE_MAP_STYLE_URL?.trim() || 'https://tiles.openfreemap.org/styles/dark'
 const installedMapHandlers = new WeakSet<MapLibreMap>()
 
-const offlineStyle: maplibregl.StyleSpecification = {
+// Built when the map is created, so the colour comes from the loaded tokens.
+const offlineStyle = (): maplibregl.StyleSpecification => ({
   version: 8,
   sources: {},
-  layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#142433' } }],
-}
+  layers: [{ id: 'background', type: 'background', paint: { 'background-color': cssToken('--surface-1') } }],
+})
 
 // Vite serves the worker as a real module URL; MapLibre's default blob worker
 // is blocked in the embedded browser used for the demo and visual QA.
@@ -49,6 +51,11 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   const firstStyleFont = map.getStyle().layers.find((layer) => layer.type === 'symbol' && Array.isArray(layer.layout?.['text-font']))
   const styleFont = firstStyleFont?.type === 'symbol' ? firstStyleFont.layout?.['text-font'] : undefined
   const clusterFont = Array.isArray(styleFont) && styleFont.every((item) => typeof item === 'string') ? styleFont : ['Noto Sans Regular']
+  // MapLibre paint cannot read var(--…); tokens are resolved once per style load.
+  const riskColor: maplibregl.ExpressionSpecification = ['match', ['get', 'risk'],
+    'red', cssToken(RISK.red.token), 'yellow', cssToken(RISK.yellow.token), 'green', cssToken(RISK.green.token), cssToken(RISK.none.token)]
+  const surface = cssToken('--surface-1')
+  const textPrimary = cssToken('--text-primary')
   map.addSource('network', { type: 'geojson', data: emptyLines })
   map.addLayer({
     id: 'network-line', type: 'line', source: 'network',
@@ -60,7 +67,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     id: 'planned-route-line', type: 'line', source: 'planned-route',
     layout: { 'line-join': 'round', 'line-cap': 'round' },
     paint: {
-      'line-color': ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#7ec7da'],
+      'line-color': riskColor,
       'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [2, 1.5],
     },
   })
@@ -68,15 +75,15 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   map.addLayer({
     id: 'vehicle-trail-line', type: 'line', source: 'vehicle-trail',
     layout: { 'line-join': 'round', 'line-cap': 'round' },
-    paint: { 'line-color': '#f1bd67', 'line-width': 5, 'line-opacity': 0.95 },
+    paint: { 'line-color': cssToken('--accent'), 'line-width': 5, 'line-opacity': 0.95 },
   })
   map.addSource('planned-stops', { type: 'geojson', data: emptyPoints })
   map.addLayer({
     id: 'planned-stops-circle', type: 'circle', source: 'planned-stops',
     paint: {
-      'circle-color': ['case', ['get', 'target'], '#ff897f', '#142433'],
+      'circle-color': ['case', ['get', 'target'], cssToken('--accent'), surface],
       'circle-radius': ['case', ['get', 'target'], 8, 6],
-      'circle-stroke-color': ['case', ['get', 'target'], '#ffffff', '#b5e2e8'],
+      'circle-stroke-color': ['case', ['get', 'target'], textPrimary, cssToken('--text-secondary')],
       'circle-stroke-width': 2,
     },
   })
@@ -85,44 +92,43 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     clusterProperties: {
       red_count: ['+', ['case', ['==', ['get', 'risk'], 'red'], 1, 0]],
       yellow_count: ['+', ['case', ['==', ['get', 'risk'], 'yellow'], 1, 0]],
+      green_count: ['+', ['case', ['==', ['get', 'risk'], 'green'], 1, 0]],
     },
   })
   map.addLayer({
     id: 'vehicle-clusters', type: 'circle', source: 'vehicles', filter: ['has', 'point_count'],
-    paint: { 'circle-color': ['case', ['>', ['get', 'red_count'], 0], '#a94952', ['>', ['get', 'yellow_count'], 0], '#976b36', '#2e6676'],
-      'circle-radius': ['step', ['get', 'point_count'], 17, 20, 22, 100, 27], 'circle-stroke-color': '#f2f7f8', 'circle-stroke-width': 1.5 },
+    paint: { 'circle-color': ['case', ['>', ['get', 'red_count'], 0], cssToken(RISK.red.token), ['>', ['get', 'yellow_count'], 0], cssToken(RISK.yellow.token),
+      ['>', ['get', 'green_count'], 0], cssToken(RISK.green.token), cssToken(RISK.none.token)],
+      'circle-radius': ['step', ['get', 'point_count'], 17, 20, 22, 100, 27], 'circle-stroke-color': textPrimary, 'circle-stroke-width': 1.5 },
   })
   if (canLabelClusters) {
     map.addLayer({
       id: 'vehicle-cluster-count', type: 'symbol', source: 'vehicles', filter: ['has', 'point_count'],
       layout: { 'text-field': ['concat', ['get', 'point_count_abbreviated'], ['case', ['>', ['get', 'red_count'], 0], ' !', '']], 'text-size': 12, 'text-font': clusterFont },
-      paint: { 'text-color': '#f5fbfc' },
+      paint: { 'text-color': cssToken('--bg-canvas') },
     })
   }
-  map.addLayer({
-    id: 'vehicles-glow', type: 'circle', source: 'vehicles', filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': riskColor,
-      'circle-radius': ['case', ['get', 'selected'], 19, 15],
-      'circle-opacity': 0.18,
-    },
-  })
   map.addLayer({
     id: 'vehicles-circle', type: 'circle', source: 'vehicles', filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-color': riskColor,
       'circle-radius': ['case', ['get', 'selected'], 10, 8],
-      'circle-stroke-color': '#f6fbff',
+      'circle-stroke-color': textPrimary,
       'circle-stroke-width': ['case', ['get', 'selected'], 3, 2],
       'circle-opacity': ['case', ['get', 'stale'], 0.58, 1],
     },
   })
   map.addSource('selected-vehicle', { type: 'geojson', data: emptyPoints })
+  // The halo marks only the selected vehicle; under every marker it blurred neighbours together.
+  map.addLayer({
+    id: 'selected-vehicle-glow', type: 'circle', source: 'selected-vehicle',
+    paint: { 'circle-color': riskColor, 'circle-radius': 19, 'circle-opacity': 0.18 },
+  })
   map.addLayer({
     id: 'selected-vehicle-circle', type: 'circle', source: 'selected-vehicle',
     paint: { 'circle-color': riskColor,
       'circle-radius': 11, 'circle-opacity': ['case', ['get', 'stale'], 0.55, 1],
-      'circle-stroke-color': ['case', ['get', 'stale'], '#f6c987', '#f6fbff'],
+      'circle-stroke-color': ['case', ['get', 'stale'], cssToken('--text-tertiary'), textPrimary],
       'circle-stroke-width': ['case', ['get', 'stale'], 4, 3] },
   })
   if (installedMapHandlers.has(map)) return
@@ -137,7 +143,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     hoverPopup.setLngLat(coordinates).setText(label).addTo(map)
   }
   const hideTooltip = () => { hoverPopup?.remove(); hoverPopup = null; hoverKey = '' }
-  const riskText = (risk: unknown) => risk === 'red' ? 'критично' : risk === 'yellow' ? 'внимание' : risk === 'green' ? 'в графике' : 'без прогноза'
+  const riskText = (risk: unknown) => riskMeta(risk).label.toLowerCase()
   const vehicleTooltip = (properties: Record<string, unknown> | null | undefined) => {
     const delay = typeof properties?.delay === 'number' ? ` · прогноз ${formatDelay(properties.delay)}` : ''
     const target = typeof properties?.target === 'string' && properties.target ? ` к ${properties.target}` : ''
@@ -185,7 +191,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     const count = Number(feature.properties?.point_count)
     const red = Number(feature.properties?.red_count)
     const yellow = Number(feature.properties?.yellow_count)
-    showTooltip(feature.geometry.coordinates as [number, number], `Группа: ${count} ${vehicleWord(count)} · ${red > 0 ? 'есть критичные' : yellow > 0 ? 'есть предупреждения' : 'в графике'}`)
+    showTooltip(feature.geometry.coordinates as [number, number], `Группа: ${count} ${vehicleWord(count)} · ${red > 0 ? 'есть критичные' : yellow > 0 ? 'есть предупреждения' : RISK.green.label.toLowerCase()}`)
   })
   map.on('mouseleave', 'vehicle-clusters', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
   map.on('remove', hideTooltip)
@@ -232,7 +238,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
     try {
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: basemapStyleUrl === 'offline' ? offlineStyle : basemapStyleUrl,
+        style: basemapStyleUrl === 'offline' ? offlineStyle() : basemapStyleUrl,
         center: [37.55, 55.74],
         zoom: 10.5,
       })
@@ -279,7 +285,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       if (tileCheckTimer) clearTimeout(tileCheckTimer)
       tileCheckTimer = null
       setBasemapStatus('offline')
-      map.setStyle(offlineStyle, { diff: false })
+      map.setStyle(offlineStyle(), { diff: false })
     }
     // A remote style that never arrives (slow VPN, blocked host) must not leave the
     // map without vehicles and routes: the local schematic takes over.
@@ -488,17 +494,14 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       </div>
       <div className="map-location-label"><Compass size={15} /> {source === 'demo' ? 'МОСКВА · ДЕМО-ДАННЫЕ' : 'МАРШРУТ · ДАННЫЕ ПОТОКА'}</div>
       <div className="map-legend">
-        <span><i className="legend-dot legend-red" />Критично</span>
-        <span><i className="legend-dot legend-yellow" />Внимание</span>
-        <span><i className="legend-dot legend-green" />В графике</span>
-        <span><i className="legend-dot legend-grey" />Нет прогноза</span>
+        {(['red', 'yellow', 'green', 'none'] as const).map((risk) => <span key={risk}><i className={`legend-dot risk-${risk}`} />{RISK[risk].label}</span>)}
         <span><i className="legend-dot legend-target" />Целевая остановка</span>
         <span className="map-cluster-legend">Группа: цвет по высшему риску</span>
       </div>
       <div className="map-route-hint"><Navigation2 size={15} /> Нажмите на борт, чтобы увидеть маршрут</div>
       <div className="map-count" role="status">{loading ? 'Ожидаем снимок' : `${vehicles.length} в снимке · ${validVehicles.length} ${mapUnavailable ? 'с допустимой позицией' : 'на карте'}`}{hiddenCount > 0 && <span> · {hiddenCount} без допустимой позиции (включая 0,0)</span>}{vehicles.some((item) => item.stale) && <span> · данные устарели</span>}</div>
       {overlappingIds.length > 1 && <div className="map-overlap-list" role="group" aria-label="Борта в выбранной точке"><strong>В этой точке несколько бортов</strong><div>{overlappingIds.map((trId) => <button key={trId} type="button" onClick={() => { setOverlappingIds([]); setViewMode('selected'); onSelect(trId) }}>Борт {trId}</button>)}</div><button className="map-overlap-close" type="button" onClick={() => setOverlappingIds([])}>Закрыть</button></div>}
-      {mapUnavailable && <div className="map-unavailable"><strong>Карта недоступна в этом браузере</strong><span>Выберите борт из списка. Карточка и предупреждения продолжают работать.</span><div className="map-fallback-list">{vehicles.map((item) => <button type="button" key={item.tr_id} onClick={() => onSelect(item.tr_id)} aria-pressed={selectedTrId === item.tr_id}>Борт {item.tr_id}{item.forecast ? ` · ${item.forecast.risk === 'red' ? 'критично' : item.forecast.risk === 'yellow' ? 'внимание' : 'в графике'}` : ' · без прогноза'}</button>)}</div></div>}
+      {mapUnavailable && <div className="map-unavailable"><strong>Карта недоступна в этом браузере</strong><span>Выберите борт из списка. Карточка и предупреждения продолжают работать.</span><div className="map-fallback-list">{vehicles.map((item) => <button type="button" key={item.tr_id} onClick={() => onSelect(item.tr_id)} aria-pressed={selectedTrId === item.tr_id}>Борт {item.tr_id} · {riskMeta(item.forecast?.risk).label.toLowerCase()}</button>)}</div></div>}
       {vehicles.length === 0 && !mapUnavailable && <div className="map-empty"><MapPin size={30} /><strong>{loading ? 'Ожидаем данные о бортах' : 'Бортов в снимке нет'}</strong><span>{loading ? 'Положение появится после получения потока.' : 'Текущий снимок содержит пустой список бортов.'}</span></div>}
     </section>
   )
