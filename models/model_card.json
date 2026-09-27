@@ -278,18 +278,18 @@
     "predict_30_ms_best": 25.1
   },
   "stream_live": {
-    "tick_ms_p50": 61.01,
-    "tick_ms_p99": 224.38,
-    "infer_ms_p50": 27.89,
-    "infer_ms_p99": 123.72,
+    "tick_ms_p50": 104.99,
+    "tick_ms_p99": 290.1,
+    "infer_ms_p50": 49.51,
+    "infer_ms_p99": 151.65,
     "tick_overruns": 1.0,
     "crc_errors": 0.0,
-    "online_mae_model_s": 88.77,
-    "online_mae_baseline_s": 150.57,
+    "online_mae_model_s": 85.21,
+    "online_mae_baseline_s": 134.02,
     "share_lead_in_window": 1.0,
-    "resolved_total": 6507.0,
+    "resolved_total": 6743.0,
     "setup": "docker compose, replay дня 06.01 ×10 по NDTP, 8 мин, ноутбук i5-10210U",
-    "model_version": "m_online-v2-ens-189b8fe",
-    "source": "reports/logs/perf_load_after_T5_ensemble.jsonl"
+    "model_version": "m_online-v2-ens-aa005cf",
+    "source": "reports/logs/perf_load_v2_detector.jsonl"
   }
 }

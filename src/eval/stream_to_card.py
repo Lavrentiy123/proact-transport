@@ -29,7 +29,7 @@ KEYS = {
 
 
 def main(argv: list[str]) -> dict:
-    src = Path(argv[1]) if len(argv) > 1 else ROOT / "reports" / "logs" / "perf_load_after_T5_ensemble.jsonl"
+    src = Path(argv[1]).resolve() if len(argv) > 1 else ROOT / "reports" / "logs" / "perf_load_after_T5_ensemble.jsonl"
     metrics = {}
     for line in src.read_text(encoding="utf-8-sig").splitlines():  # вывод из PowerShell бывает с BOM
         if line.strip():
