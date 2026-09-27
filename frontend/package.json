@@ -8,6 +8,7 @@
     "dev:stub": "node scripts/mock-backend.mjs",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "test:contracts": "node scripts/contract-smoke.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
