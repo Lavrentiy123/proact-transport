@@ -16,7 +16,11 @@ interface Props {
   /** live — data follows the stream, degraded — telemetry is lost and forecasts use the schedule, paused — no fresh frames. */
   feed: 'live' | 'degraded' | 'paused'
   onSelect: (trId: number, alertId: string) => void
+  /** Выбор борта без предупреждения (список «Под наблюдением», когда активных предупреждений нет). */
+  onSelectVehicle?: (trId: number) => void
 }
+
+const WATCH_LIMIT = 5
 
 const savedRiskKey = 'proact-transport:alert-risk-filter:v1'
 
@@ -27,7 +31,7 @@ function initialRiskFilter(): 'all' | 'red' | 'yellow' {
   } catch { return 'all' }
 }
 
-export default function AlertList({ alerts, vehicles, selectedTrId, selectedAlertId, simTime, loading, feed, onSelect }: Props) {
+export default function AlertList({ alerts, vehicles, selectedTrId, selectedAlertId, simTime, loading, feed, onSelect, onSelectVehicle }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [riskFilter, setRiskFilter] = useState<'all' | 'red' | 'yellow'>(initialRiskFilter)
   const [query, setQuery] = useState('')
@@ -44,6 +48,12 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
   const visible = expanded || query.trim() || riskFilter !== 'all' ? filtered : filtered.slice(0, 7)
   const activeOrder = active.map((alert) => alert.alert_id).join('|')
   const visibleOrder = visible.map((alert) => alert.alert_id).join('|')
+  // Предупреждение поднимается только на красном риске и держится минуты; в паузах лента показывает борта с
+  // жёлтым и красным риском, чтобы диспетчер сразу видел, за кем следить.
+  const watch = !loading && active.length === 0 && onSelectVehicle
+    ? vehicles.filter((vehicle) => vehicle.forecast && (vehicle.forecast.risk === 'red' || vehicle.forecast.risk === 'yellow'))
+      .sort((a, b) => (b.forecast?.delay_pred_s ?? 0) - (a.forecast?.delay_pred_s ?? 0)).slice(0, WATCH_LIMIT)
+    : []
 
   useEffect(() => {
     if (selectedAlertId && active.findIndex((item) => item.alert_id === selectedAlertId) >= 7) setExpanded(true)
@@ -72,7 +82,32 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
           <Button variant="ghost" aria-pressed={riskFilter === 'yellow'} onClick={() => setRiskFilter('yellow')}>{RISK.yellow.label}</Button>
         </div>
       </div>
-      {visible.length === 0 ? (
+      {visible.length === 0 && watch.length > 0 ? (
+        <>
+          <EmptyState className="alerts-empty-compact" title="Активных предупреждений нет"
+            hint="Под наблюдением — борта с жёлтым и красным риском. Нажмите, чтобы открыть прогноз." />
+          <div className="alerts-scroll watch-list" role="group" aria-label="Под наблюдением">
+            {watch.map((vehicle) => {
+              const forecast = vehicle.forecast!
+              const target = stopLabel(forecast.target_stop_name, forecast.target_stop_id)
+              const countdown = planCountdown((contractTimeMs(forecast.target_time_plan) - contractTimeMs(simTime)) / 1000)
+              const selected = vehicle.tr_id === selectedTrId
+              return (
+                <button key={vehicle.tr_id} className={`alert-item watch-item risk-${forecast.risk}${selected ? ' selected' : ''}`}
+                  onClick={() => onSelectVehicle?.(vehicle.tr_id)} aria-current={selected || undefined}
+                  aria-label={`Под наблюдением: борт ${vehicle.tr_id}, ${riskMeta(forecast.risk).label.toLowerCase()}, прогноз ${formatDelay(forecast.delay_pred_s)}, к ${target}, ${countdown}`}>
+                  <div className="alert-item-top">
+                    <RiskMark risk={forecast.risk} />
+                    <span className="alert-vehicle">Борт {vehicle.tr_id}</span>
+                    <span className="alert-delay">{formatDelay(forecast.delay_pred_s)}</span>
+                  </div>
+                  <div className="alert-item-bottom">к {target} · {countdown}</div>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      ) : visible.length === 0 ? (
         <EmptyState icon={<BellRing size={28} />} title={loading ? 'Ожидаем данные' : filtered.length === 0 && active.length > 0 ? 'Ничего не найдено' : 'Активных предупреждений нет'}
           hint={loading ? 'Лента появится после получения снимка.' : active.length > 0 ? 'Измените фильтр или номер борта.' : 'Новые предупреждения появятся здесь.'} />
       ) : (
@@ -83,6 +118,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
             const riskLabel = riskMeta(alert.risk).label.toLowerCase()
             const target = stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)
             const countdown = planCountdown((contractTimeMs(alert.forecast.target_time_plan) - contractTimeMs(simTime)) / 1000)
+            const cause = alert.forecast.cause?.text?.trim() || ''
             return (
               <button
                 key={alert.alert_id}
@@ -90,7 +126,8 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
                 className={`alert-item risk-${alert.risk}${selected ? ' selected' : ''}`}
                 onClick={() => onSelect(alert.tr_id, alert.alert_id)}
                 aria-current={selected || undefined}
-                aria-label={`Борт ${alert.tr_id}, ${riskLabel}, отклонение ${formatDelay(alert.forecast.delay_pred_s)}, к ${target}, ${countdown}`}
+                aria-label={`Борт ${alert.tr_id}, ${riskLabel}, отклонение ${formatDelay(alert.forecast.delay_pred_s)}${cause ? `, причина: ${cause}` : ''}, к ${target}, ${countdown}`}
+                title={cause ? `Причина: ${cause}` : undefined}
               >
                 <div className="alert-item-top">
                   <RiskMark risk={alert.risk} />
@@ -98,6 +135,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
                   <span className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)}</span>
                 </div>
                 <div className="alert-item-bottom">к {target} · {countdown}</div>
+                {cause && <div className="alert-item-cause">{cause}</div>}
                 {vehicle?.stale && <StatusPill state="stale" className="stale-tag">Данные устарели</StatusPill>}
               </button>
             )

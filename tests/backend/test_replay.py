@@ -1,4 +1,4 @@
-"""BE-4 (A3): replay ``data/test/traffic.csv`` → NDTP → TCP; координаты совпадают с CSV."""
+"""BE-4: replay ``data/test/traffic.csv`` → NDTP → TCP; координаты совпадают с CSV."""
 
 import asyncio
 import time

@@ -132,7 +132,7 @@ export default function IncidentCard({ source, connected, vehicle, alert, foreca
             ]} />
           )}
           {alert?.recommendation?.target_speed_kmh != null && alert.recommendation.target_speed_kmh > 0 && (
-            <details className="whatif-details"><summary>Что если: изменить скорость</summary>
+            <details className="whatif-details" open><summary>Что если: изменить скорость</summary>
               <WhatIfPanel key={alert.alert_id} forecast={alert.forecast} speedToPlanKmh={alert.recommendation.target_speed_kmh} />
             </details>
           )}

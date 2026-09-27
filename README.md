@@ -8,6 +8,19 @@
 Три модуля в Docker: **ml-core** (CatBoost + PyTorch через ONNX, `:8001`) · **backend** (приём NDTP `:9201`, тик
 прогнозов, алерты, REST и WebSocket `:8000`) · **дашборд** (React + MapLibre, nginx `:3000`).
 
+## Развёрнутый стенд
+
+Та же система из `docker compose` работает на сервере, поток — replay реального дня 06.01.2026 по NDTP (×10, по кругу):
+
+| Что открыть | Адрес |
+|---|---|
+| **Дашборд диспетчера** | http://158.160.13.247:3000 |
+| Swagger backend · Swagger ml-core | http://158.160.13.247:8000/docs · http://158.160.13.247:8001/docs |
+| Статус потока · горизонт 10–15 мин и онлайн-MAE | http://158.160.13.247:8000/api/v1/system/status · http://158.160.13.247:8000/api/v1/metrics/horizon |
+| Документация по коду (pdoc) и OpenAPI | https://lavrentiy123.github.io/proact-transport/ |
+
+Стенд общий: перемотку времени и обрыв потока удобнее проверять на своём запуске по инструкции ниже.
+
 ## Быстрый старт (для жюри)
 
 Нужны Docker Desktop / Docker Engine с Compose v2, 8 ГБ ОЗУ и ~4 ГБ на диске. Интернет — только на сборку образов.
@@ -65,7 +78,9 @@ docker compose up --build -d
   производительность — [`docs/perf.md`](docs/perf.md); текст для формы — [`docs/form_perf_and_features.md`](docs/form_perf_and_features.md).
 - Документация по коду (pdoc): ML — [`docs/api/ml/index.html`](docs/api/ml/index.html) (пакеты `features`, `ml_core`),
   backend — [`docs/api/backend/index.html`](docs/api/backend/index.html); OpenAPI без запуска — `docs/api/backend/openapi.json`.
+  Онлайн: https://lavrentiy123.github.io/proact-transport/.
 - Контракты между модулями — [`contracts/`](contracts/README.md).
+- Внешние данные, сервисы и библиотеки с лицензиями (п. 9.4 Положения) — [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md).
 
 ## Разработка, обучение и тесты
 
@@ -78,8 +93,8 @@ python -m venv .venv312 && .venv312/Scripts/python -m pip install -r requirement
 .venv312/Scripts/python -m src.eval.online_replay_eval   # онлайн-replay: горизонт и онлайн-MAE
 ```
 
-Отчёты по задачам — [`reports/tasks/`](reports/tasks), итоговые отчёты — [`reports/ML_FINAL_REPORT.md`](reports/ML_FINAL_REPORT.md)
-и [`docs/reports/RASTSOV_EXEC_REPORT.md`](docs/reports/RASTSOV_EXEC_REPORT.md).
+Результаты онлайн-оценки — [`reports/online_eval.md`](reports/online_eval.md), замеры производительности —
+[`docs/perf.md`](docs/perf.md), сырые логи прогонов — `reports/logs/` и `docs/reports/logs/`.
 
 ## Структура репозитория
 

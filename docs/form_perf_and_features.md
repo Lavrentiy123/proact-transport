@@ -36,11 +36,13 @@
 
 ## Ссылки для полей формы
 
-Репозиторий публичный (проверено анонимным запросом 26.09). После код-фриза все ссылки — на тег `v1.0`:
+Репозиторий публичный, все ссылки — на тег `v1.0` (код-фриз):
 
 | Поле формы | Ссылка |
 |---|---|
-| 2. Система из 3 модулей в Docker, запуск по README | https://github.com/Lavrentiy123/proact-transport/tree/v1.0 |
+| 2. Система из 3 модулей в Docker, запуск по README | https://github.com/Lavrentiy123/proact-transport/tree/v1.0 · развёрнутый стенд: http://158.160.13.247:3000 |
 | 3. Инструкция для жюри | https://github.com/Lavrentiy123/proact-transport/blob/v1.0/docs/JURY_GUIDE.md |
-| 4. Документация | https://lavrentiy123.github.io/proact-transport/ (pdoc ML и backend, OpenAPI) — после включения GitHub Pages; Swagger после запуска: http://localhost:8000/docs, http://localhost:8001/docs |
+| 4. Документация | https://lavrentiy123.github.io/proact-transport/ (pdoc ML и backend, OpenAPI) · Swagger на стенде: http://158.160.13.247:8000/docs (backend), http://158.160.13.247:8001/docs (ml-core) |
 | 5. Производительность и доп. возможности | https://github.com/Lavrentiy123/proact-transport/blob/v1.0/docs/form_perf_and_features.md |
+
+Внешние данные, сервисы и библиотеки с лицензиями (п. 9.4 Положения) — [`docs/THIRD_PARTY.md`](THIRD_PARTY.md).

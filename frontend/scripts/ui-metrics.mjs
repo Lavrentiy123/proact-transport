@@ -1,4 +1,4 @@
-// UI metrics of the audit (AUDIT.md, PLAN.MD 1.5.3): text contrast, text under 11 px, targets under 24 px
+// UI metrics: text contrast, text under 11 px, targets under 24 px
 // and horizontal overflow, for the demo and the live stream at 375, 768 and 1440 px.
 //
 //   node scripts/ui-metrics.mjs [--base http://127.0.0.1:5173/] [--out ui-metrics/report.json] [--strict]

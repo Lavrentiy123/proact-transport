@@ -54,6 +54,7 @@
 @media (max-width: 1439px) {
   .source-note { display: none; }
   .header-counter .lucide { display: none; }
+  .header-counter .metric-extra { display: none; }
 }
 @media (max-width: 1365px) {
   .header-counters { gap: var(--sp-2); }

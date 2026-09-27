@@ -33,7 +33,8 @@ export function useRouteNetwork(enabled: boolean, vehicles: VehicleState[] | nul
           if (controller.signal.aborted) return
           for (const entry of batch) if (entry) loaded[entry[0]] = entry[1]
         }
-        setTracks(loaded)
+        // Backend unreachable (every request failed): keep the last known network on the map.
+        if (Object.keys(loaded).length > 0) setTracks(loaded)
       } finally {
         running = false
       }

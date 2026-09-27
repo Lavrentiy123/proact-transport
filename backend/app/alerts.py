@@ -8,7 +8,7 @@
   опережает → ``hold`` 30–120 с, red на первом или последнем рейсе → ``reserve``.
 
 Ключ алерта — ``tr_id``: целевая остановка сдвигается вместе с окном (now+10, now+15] примерно раз в
-минуту, и алерт по ``(tr_id, остановка)`` пересоздавался бы (``docs/RASTSOV_BRIEF.md`` §5.2 п. 6).
+минуту, и алерт по ``(tr_id, остановка)`` пересоздавался бы.
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ def build_cause(code: str, confidence: float, feats: dict, derived: dict, last_s
         ev = f"уже {fmt_delay(cur)}{at}" if cur is not None else "отставание по последним остановкам"
     elif code == "hard_segment":
         need = route / horizon_s * 3.6 if route and horizon_s > 0 else None
-        ev = (f"до «{target_name}» {route / 1000:.1f} км за {fmt_mmss(horizon_s)}: нужно {need:.0f} км/ч"
+        ev = (f"до {stop_label(target_name)} {route / 1000:.1f} км за {fmt_mmss(horizon_s)}: нужно {need:.0f} км/ч"
               if need is not None else "длинный перегон до целевой остановки")
         if seg is not None and math.isfinite(seg):
             ev += f", на перегоне {seg:.0f} км/ч"

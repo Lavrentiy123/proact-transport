@@ -1,4 +1,4 @@
-"""BE-1 (A1): каркас API на заглушке — каждый ответ валиден по ``contracts.schemas``."""
+"""BE-1: каркас API на заглушке — каждый ответ валиден по ``contracts.schemas``."""
 
 import pytest
 from fastapi.testclient import TestClient

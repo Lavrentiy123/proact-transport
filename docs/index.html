@@ -27,6 +27,14 @@
   <p class="lead">Прогноз задержек городского транспорта за 10–15 минут: ml-core (CatBoost + PyTorch через ONNX),
     backend (приём NDTP, тик прогнозов, алерты) и дашборд диспетчера в Docker.</p>
 
+  <h2>Развёрнутый стенд</h2>
+  <ul>
+    <li><a href="http://158.160.13.247:3000">Дашборд диспетчера</a> — живой поток: replay реального дня по NDTP, ×10, по кругу</li>
+    <li>Swagger: <a href="http://158.160.13.247:8000/docs">backend</a> · <a href="http://158.160.13.247:8001/docs">ml-core</a></li>
+    <li><a href="http://158.160.13.247:8000/api/v1/system/status">Статус потока</a> ·
+      <a href="http://158.160.13.247:8000/api/v1/metrics/horizon">горизонт 10–15 мин и онлайн-MAE</a></li>
+  </ul>
+
   <h2>Документация по коду (pdoc)</h2>
   <ul>
     <li><a href="api/ml/index.html">ML</a> — пакет признаков <code>features</code>, сервис <code>ml_core</code>,

@@ -6,11 +6,11 @@
 
 | Цифра | Значение | Команда воспроизведения |
 |---|---|---|
-| Сборка всех образов без кэша Docker | 121 с | `docker compose build --no-cache` (замер шага 6, чистый клон) |
+| Сборка всех образов без кэша Docker | 121 с | `docker compose build --no-cache` (замер на чистом клоне) |
 | `docker compose up -d` (образы собраны, контейнеры удалены) | 12.8 с | `python scripts/measure_perf.py cold` |
 | От `up -d` до `/ready` = 200 | 12.8 с | `python scripts/measure_perf.py cold` |
 | От `up -d` до первого борта с прогнозом | 15.0 с | `python scripts/measure_perf.py cold` |
-| От `up -d` до первого алерта | 169.4 с до вливания ML-T5; **20.3 с** после вливания `origin/main` (ансамбль ml-core с PyTorch/ONNX, лог `docs/reports/logs/step5_after_main_merge.txt`) | `python scripts/measure_perf.py cold` — модель впервые даёт красный прогноз в 07:27 времени датасета; с `start_at` 07:25 алерт появился через 11 с при ×10 (шаг 10) и 20 с при ×5 (шаг 13); повтор после исправлений: 157.5 с после `up -d` (`docs/reports/logs/step5_first_alert.txt`) |
+| От `up -d` до первого алерта | 169.4 с до вливания ML-T5; **20.3 с** после вливания `origin/main` (ансамбль ml-core с PyTorch/ONNX, лог `docs/reports/logs/step5_after_main_merge.txt`) | `python scripts/measure_perf.py cold` — модель впервые даёт красный прогноз в 07:27 времени датасета; с `start_at` 07:25 алерт появился через 11 с при ×10 и 20 с при ×5; повтор после исправлений: 157.5 с после `up -d` (`docs/reports/logs/step5_first_alert.txt`) |
 | Размеры образов | ml-core 1.15 ГБ, backend 468 МБ | `docker images | grep proact` |
 
 ## Поток и тик (replay ×10, 10 минут)

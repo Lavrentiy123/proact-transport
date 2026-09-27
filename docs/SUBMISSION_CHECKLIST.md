@@ -5,8 +5,7 @@
 ## 0. Как загрузить сабмит и увидеть скор
 
 1. https://reg.mt-hackathon.ru → войти → задача **«Предиктор изменений в графике транспорта»** → раздел **Data Science**.
-2. Загрузить `submissions/sub_20260926_1522_mds_v1.csv` (полный путь на ноутбуке капитана:
-   `submissions\sub_20260926_1522_mds_v1.csv`).
+2. Загрузить `submissions/sub_20260926_1522_mds_v1.csv` (папка `submissions/` в корне репозитория).
 3. Платформа сама считает скор; результат — на вкладке **«Наши решения»**. Скор ≥ 0.70 = 6 баллов из 6 (максимум критерия 1).
 4. Вписать скор в `submissions/journal.csv` (колонка `lb_score`) и перегенерировать материалы:
    `python -m src.product.render_accuracy`, `python -m src.product.render_model_card`, `python -m src.product.render_qa`.
@@ -21,9 +20,9 @@
 | Поле формы | Что вставить | Где взять |
 |---|---|---|
 | 1. `submission.csv` (раздел Data Science) | лучший по LB сабмит; первым загружать основной `submissions/sub_20260926_1522_mds_v1.csv` | `submissions/journal.csv` — колонки `file` и `lb_score` |
-| 2. Ссылка на систему из 3 модулей в Docker, «запускаемую по README» | https://github.com/Lavrentiy123/proact-transport — раздел «Быстрый старт» в корневом `README.md` | тег `v1.0` после код-фриза; репозиторий открыт (публичный) — перед сдачей проверить ссылки из окна инкогнито; если стенд развёрнут на сервере — добавить его адрес |
-| 3. Инструкция для жюри | `docs/JURY_GUIDE.md` (запуск одной командой, подача потока, где алерты и метрики) | Расцов (П7) |
-| 4. Документация | pdoc: `docs/api/ml/index.html` (features, ml_core) и `docs/api/backend/index.html` (backend); Swagger: `http://localhost:8000/docs` (backend) и `http://localhost:8001/docs` (ml-core) после `docker compose up` | `docs/api/ml/`, `docs/api/backend/`, `docs/architecture.md` |
+| 2. Ссылка на систему из 3 модулей в Docker, «запускаемую по README» | https://github.com/Lavrentiy123/proact-transport/tree/v1.0 — раздел «Быстрый старт» в корневом `README.md`; развёрнутый стенд — http://158.160.13.247:3000 | репозиторий публичный; перед сдачей проверить ссылки из окна инкогнито |
+| 3. Инструкция для жюри | https://github.com/Lavrentiy123/proact-transport/blob/v1.0/docs/JURY_GUIDE.md (стенд, запуск одной командой, подача потока, где алерты и метрики) | `docs/JURY_GUIDE.md` |
+| 4. Документация | https://lavrentiy123.github.io/proact-transport/ — pdoc (features, ml_core, backend) и OpenAPI; Swagger на стенде: http://158.160.13.247:8000/docs (backend), http://158.160.13.247:8001/docs (ml-core); локально — `http://localhost:8000/docs`, `http://localhost:8001/docs` | `docs/api/ml/`, `docs/api/backend/`, `docs/architecture.md`, `docs/THIRD_PARTY.md` |
 | 5. Производительность и доп. возможности | готовый текст `docs/form_perf_and_features.md` (П6, П8) + ML-цифры из `docs/model_card.md` (латентность, горизонт) | `docs/perf.md`, `docs/form_perf_and_features.md`, `docs/model_card.md` |
 | Видео-питч 3 мин | ссылка на видео (монтаж — Пуртов, озвучка — Лаврентий) | уточнить в капитанском чате, обязательно ли до 23:59 27.09 |
 
@@ -61,10 +60,10 @@
 
 | Вопрос | Ответ | Что делаем |
 |---|---|---|
-| Разворачивать ли решение на сервере | «крайне желательно» | поднять стенд на ВМ (`docker compose up --build -d`; replay идёт по кругу — `--loop` в compose), адрес дашборда — в поле 2 формы; README и `docs/JURY_GUIDE.md` остаются для локального запуска |
+| Разворачивать ли решение на сервере | «крайне желательно» | стенд поднят на ВМ Yandex Cloud: http://158.160.13.247:3000 (Swagger `:8000/docs`, `:8001/docs`; replay идёт по кругу — `--loop` в compose); адрес — в поле 2 формы; README и `docs/JURY_GUIDE.md` — и для стенда, и для локального запуска |
 | Эмулятор NDTP | необязателен | по умолчанию поток — replay реального дня по NDTP; эмулятор — профиль `emulator` (проверка протокола и нагрузки) |
 | Как проверяют систему | на realtime-телеметрии | поток идёт через NDTP-сервер `:9201` тем же путём, что у эмулятора; прогноз строится только по уже пришедшим пакетам (`docs/ANTI_LEAKAGE.md`) |
-| Ссылки | должны открываться у жюри | репозиторий публичный; pdoc — через GitHub Pages (Settings → Pages → `main` / `/docs`, лендинг `docs/index.html`) |
+| Ссылки | должны открываться у жюри | репозиторий публичный; pdoc — GitHub Pages включён: https://lavrentiy123.github.io/proact-transport/ (лендинг `docs/index.html`) |
 | Что видно на лидерборде | только итоговый балл | скор критерия 1 смотрим во вкладке «Наши решения» |
 
 Ещё открыто:

@@ -36,8 +36,10 @@ export function useDispatcherActions(source: 'demo' | 'live') {
       setOutcomes((current) => ({ ...current, [target.tr_id]: response }))
     } catch (error: unknown) {
       if (session !== sessionRef.current) return
+      // fetch rejects with a TypeError («Failed to fetch») when the server is unreachable.
       const message = isTimeout(error) ? 'нет ответа 8 секунд'
-        : error instanceof Error ? error.message : 'ошибка сети'
+        : error instanceof TypeError ? 'нет связи с сервером'
+          : error instanceof Error ? error.message : 'ошибка сети'
       setOutcomes((current) => ({ ...current, [target.tr_id]: { alert_id: target.alert_id, error: message } }))
     }
   }, [source])

@@ -180,7 +180,7 @@ export default function App() {
       </div>
       <main className="dashboard-main">
       <div className="workbench">
-        <AlertList alerts={alerts} vehicles={vehicles} selectedTrId={selectedTrId} selectedAlertId={alert?.alert_id ?? null} simTime={snapshot.sim_time} loading={!hasAlertSnapshot} feed={!connected ? 'paused' : degraded ? 'degraded' : 'live'} onSelect={(trId, alertId) => { setSelection({ trId, alertId, pickedByUser: true }); setFocusSelectionToken((current) => current + 1) }} />
+        <AlertList alerts={alerts} vehicles={vehicles} selectedTrId={selectedTrId} selectedAlertId={alert?.alert_id ?? null} simTime={snapshot.sim_time} loading={!hasAlertSnapshot} feed={!connected ? 'paused' : degraded ? 'degraded' : 'live'} onSelect={(trId, alertId) => { setSelection({ trId, alertId, pickedByUser: true }); setFocusSelectionToken((current) => current + 1) }} onSelectVehicle={selectVehicle} />
         <Suspense fallback={<section className="map-panel" aria-label="Карта движения бортов"><div className="map-empty">Загрузка карты…</div></section>}>
           <VehicleMap source={source} vehicles={vehicles} selectedTrId={selectedTrId} selectedRisk={displayForecast?.risk ?? null} focusSelectionToken={focusSelectionToken} resetViewToken={resetMapViewToken} track={track} loading={!hasVehicleSnapshot} onSelect={selectVehicle}
             networkTracks={source === 'live' ? networkTracks : undefined} simTime={snapshot.sim_time} />

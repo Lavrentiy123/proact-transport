@@ -21,7 +21,7 @@ export const RISK: Record<RiskKey, RiskMeta> = {
   red: { label: 'Критично', long: 'Критический риск', icon: TriangleAlert, shape: 'triangle', token: '--risk-red', cssVar: 'var(--risk-red)', tintVar: 'var(--risk-red-tint)' },
   yellow: { label: 'Внимание', long: 'Требует внимания', icon: Diamond, shape: 'diamond', token: '--risk-yellow', cssVar: 'var(--risk-yellow)', tintVar: 'var(--risk-yellow-tint)' },
   green: { label: 'В графике', long: 'В графике', icon: CircleCheck, shape: 'circle', token: '--risk-green', cssVar: 'var(--risk-green)', tintVar: 'var(--risk-green-tint)' },
-  none: { label: 'Нет прогноза', long: 'Риск не определен', icon: CircleDashed, shape: 'ring', token: '--risk-none', cssVar: 'var(--risk-none)', tintVar: 'var(--risk-none-tint)' },
+  none: { label: 'Нет прогноза', long: 'Риск не определён', icon: CircleDashed, shape: 'ring', token: '--risk-none', cssVar: 'var(--risk-none)', tintVar: 'var(--risk-none-tint)' },
 }
 
 export const RISK_LEVELS = ['red', 'yellow', 'green'] as const satisfies readonly Risk[]

@@ -1,4 +1,4 @@
-"""BE-8 (A5): /metrics в формате Prometheus."""
+"""BE-8: /metrics в формате Prometheus."""
 
 import re
 import socket

@@ -169,7 +169,8 @@ export async function postAction(alertId: string, action: 'apply' | 'dismiss'): 
       signal: timeout.signal,
     })
     if (response.status === 409) throw new Error('алерт уже снят или решён')
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    if (response.status === 404) throw new Error('алерт уже не активен (новый рейс или перемотка потока)')
+    if (!response.ok) throw new Error(`сервер ответил ошибкой ${response.status}`)
     const value = await response.json() as Partial<ActionResponse>
     if (typeof value.alert_id !== 'string' || typeof value.status !== 'string' || typeof value.driver_message !== 'string') {
       throw new Error('Некорректный ответ на действие')

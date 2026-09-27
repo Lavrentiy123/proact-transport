@@ -14,7 +14,8 @@ export function useHorizon(enabled: boolean) {
     const load = () => {
       const timeout = timeoutSignal(REQUEST_TIMEOUT_MS, controller.signal)
       return fetchHorizon(timeout.signal)
-        .then((value) => { if (!controller.signal.aborted) setHorizon(value) })
+        // A failed refresh keeps the last known metrics instead of blanking the header.
+        .then((value) => { if (!controller.signal.aborted && value) setHorizon(value) })
         .catch(() => { /* панель просто не обновится */ })
         .finally(timeout.dispose)
     }

@@ -24,7 +24,7 @@ npm run dev
 | `npm run build` | типы и production-сборка | блокирует |
 | `npm run test:e2e` | Playwright на stub: S2 выбор борта → рекомендация, S3 «Отправить водителю» → ответ водителя, S4 обрыв → «НЕТ СВЯЗИ» → «LIVE», S6 демо по [сценарию показа](docs/DEMO_SCRIPT.md), регрессии `status-skew`, `rewind`, `drop-selected`, `bad-frame`; S1 и S5 — цели этапа 3 (`fixme`) | блокирует |
 | `npm run test:visual` | снимки 375/768/1440 px для шести состояний (демо: обычный поток, пик, нет данных, потеря связи; live `status-skew`; live без backend) | не блокирует, снимки — в artifact |
-| `npm run ui-metrics` | замеры аудита: контраст текста (AA), кегль < 11 px, цели < 24 px, горизонтальная прокрутка для демо и live на 375/768/1440 px; отчёт `ui-metrics/report.json`, `-- --strict` завершает с кодом 1 при нарушениях | не блокирует, отчёт — в artifact |
+| `npm run ui-metrics` | UI-замеры: контраст текста (AA), кегль < 11 px, цели < 24 px, горизонтальная прокрутка для демо и live на 375/768/1440 px; отчёт `ui-metrics/report.json`, `-- --strict` завершает с кодом 1 при нарушениях | не блокирует, отчёт — в artifact |
 
 Playwright сам запускает Vite на 5173 и перед каждым live-тестом — stub на 8000 с нужным `STUB_CASE`, после теста останавливает его; тесты идут по одному. Порт 8000 должен быть свободен (не запускайте в это время backend или `npm run dev:stub`). Браузер: в CI — `npx playwright install --with-deps chromium`; локально можно указать уже установленный Chromium через `PW_CHROMIUM_PATH`:
 
@@ -109,5 +109,5 @@ docker run --rm -p 3000:3000 proact-frontend
 Отчёт о выполнении этапов: [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md).
 Сценарий двухминутного показа: [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md).
 Повторные проверки: [сборка и контейнер](docs/RETEST_BUILD_2026-09-26.md), [интерфейс и поток](docs/RETEST_UI_2026-09-26.md).
-План дальнейшего улучшения: [docs/FRONTEND_IMPROVEMENT_PLAN.md](docs/FRONTEND_IMPROVEMENT_PLAN.md).
-Итоговый отчёт по реализации и проверкам расширенного плана: [docs/FRONTEND_IMPLEMENTATION_REPORT_2026-09-26.md](docs/FRONTEND_IMPLEMENTATION_REPORT_2026-09-26.md).
+План улучшения frontend: [docs/FRONTEND_IMPROVEMENT_PLAN.md](docs/FRONTEND_IMPROVEMENT_PLAN.md).
+Решение о способе стилизации: [docs/ADR-001-styling.md](docs/ADR-001-styling.md).

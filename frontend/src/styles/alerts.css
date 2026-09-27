@@ -12,7 +12,13 @@
 .alert-delay { margin-left: auto; font-size: var(--fs-18); font-weight: var(--fw-semibold); line-height: var(--lh-ui); font-variant-numeric: tabular-nums; }
 .alert-item.risk-red .alert-delay, .alert-item.risk-yellow .alert-delay { color: var(--risk); }
 .alert-item-bottom { overflow: hidden; color: var(--text-secondary); font-size: var(--fs-12); white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+/* Причина — третьей строкой, только на высоких экранах: на 768–900 px по высоте лента должна вмещать ≥ 5 карточек. */
+.alert-item-cause { display: none; overflow: hidden; color: var(--text-tertiary); font-size: var(--fs-12); white-space: nowrap; text-overflow: ellipsis; }
+@media (min-height: 960px) { .alert-item-cause { display: block; } }
 .alert-item .stale-tag { justify-self: start; }
+/* Пауза между предупреждениями: короткая пустая плашка и список «Под наблюдением». */
+.alerts-empty-compact.ui-empty--panel { flex: none; padding: var(--sp-4) var(--sp-4) var(--sp-2); }
+.watch-item { border-left-style: dashed; }
 .alerts-panel .ui-panel-title { font-size: var(--fs-15); }
 .alerts-panel .ui-panel-header { padding-bottom: var(--sp-2); }
 .alerts-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }

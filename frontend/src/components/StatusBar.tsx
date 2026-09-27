@@ -75,12 +75,11 @@ export default function StatusBar({
         <span className="header-counter metric-yellow"><RiskMark variant="marker" risk="yellow" /><strong>{count(yellow)}</strong><small>{RISK.yellow.label.toLowerCase()}</small></span>
         <span className="header-counter"><strong>{alertCount ?? '—'}</strong><small>{alertCount == null ? 'предупреждений' : plural(alertCount, ALERT_FORMS)}</small></span>
         {source === 'live' && horizon && <span className="header-counter metric-horizon" title={`Доля прогнозов с горизонтом 10–15 мин. Сверено с фактическим прибытием: ${horizon.resolved_total} из ${horizon.forecasts_total}`}>
-          <Target size={15} /><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'за 10–15 мин' : 'прогнозов нет'}</small></span>}
-        {source === 'live' && horizon && horizon.forecasts_total > 0 && (horizon.online_mae_model_s != null && horizon.resolved_total >= MIN_RESOLVED
-          ? <span className="header-counter metric-horizon" title={`Онлайн-MAE по журналу прогнозов потока: ${horizon.resolved_total} прогнозов сверены с фактическим прибытием${horizon.online_mae_baseline_s != null ? `; бейзлайн ${Math.round(horizon.online_mae_baseline_s)} с` : ''}`}>
-            <strong>{Math.round(horizon.online_mae_model_s)} с</strong><small>ошибка</small></span>
-          : <span className="header-counter metric-horizon" title={`Ошибку показываем, когда с фактом сверено достаточно прогнозов: сверено ${horizon.resolved_total} из ${MIN_RESOLVED}`}>
-            <strong>—</strong><small>ошибка</small></span>)}
+          <Target size={15} /><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'за 10–15 мин' : 'прогнозов пока нет'}</small></span>}
+        {/* До 200 сверенных прогнозов (старт дня, перемотка replay) ошибку не показываем: «—» читается как сбой. */}
+        {source === 'live' && horizon && horizon.online_mae_model_s != null && horizon.resolved_total >= MIN_RESOLVED &&
+          <span className="header-counter metric-horizon" title={`Онлайн-MAE по журналу прогнозов потока: ${horizon.resolved_total} прогнозов сверены с фактическим прибытием${horizon.online_mae_baseline_s != null ? `; бейзлайн ${Math.round(horizon.online_mae_baseline_s)} с` : ''}`}>
+            <strong>{Math.round(horizon.online_mae_model_s)} с</strong><small>ср. ошибка{horizon.online_mae_baseline_s != null && <span className="metric-extra"> · бейзлайн {Math.round(horizon.online_mae_baseline_s)} с</span>}</small></span>}
       </section>
 
       <section className="header-controls" aria-label="Управление источником данных">

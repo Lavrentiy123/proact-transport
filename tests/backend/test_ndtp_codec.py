@@ -1,4 +1,4 @@
-"""BE-2 (A2): NDTP-кодек — round-trip, реальные кадры эмулятора, устойчивость к CRC и мусору.
+"""BE-2: NDTP-кодек — round-trip, реальные кадры эмулятора, устойчивость к CRC и мусору.
 
 Фикстура ``fixtures/emulator_frames.bin`` — 20 кадров, записанных с официального образа
 ``ndtp-telemetry-emulator:1.0`` (два юнита ``autoGenerate``, ``intervalMs: 2000``): ``docker load -i
