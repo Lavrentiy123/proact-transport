@@ -36,7 +36,6 @@ const NETWORK_BACK_MS = 15 * 60_000
 const NETWORK_AHEAD_MS = 45 * 60_000
 const basemapStyleUrl = import.meta.env.VITE_MAP_STYLE_URL?.trim() || 'https://tiles.openfreemap.org/styles/dark'
 const installedMapHandlers = new WeakSet<MapLibreMap>()
-
 // Built when the map is created, so the colour comes from the loaded tokens.
 const offlineStyle = (): maplibregl.StyleSpecification => ({
   version: 8,
@@ -220,6 +219,8 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
 
 export default function VehicleMap({ source, vehicles, selectedTrId, selectedRisk, focusSelectionToken, resetViewToken, track, loading, onSelect, networkTracks, simTime }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const vehiclesInViewRef = useRef<() => void>(() => {})
+  const [vehiclesInView, setVehiclesInView] = useState<number | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const onSelectRef = useRef(onSelect)
   const previousFocusRef = useRef(focusSelectionToken)
@@ -234,6 +235,10 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
   const validVehicles = vehicles.filter((item) => validCoordinate(item.lon, item.lat))
   const hiddenCount = vehicles.length - validVehicles.length
   onSelectRef.current = onSelect
+  vehiclesInViewRef.current = () => {
+    const bounds = mapRef.current?.getBounds()
+    setVehiclesInView(bounds ? validVehicles.filter((item) => bounds.contains([item.lon, item.lat])).length : null)
+  }
 
   useEffect(() => {
     if (focusSelectionToken === previousFocusRef.current) return
@@ -341,6 +346,8 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       lastFittedRef.current = null
       setStyleRevision((revision) => revision + 1)
     })
+    map.on('moveend', () => vehiclesInViewRef.current())
+    map.on('resize', () => vehiclesInViewRef.current())
     map.on('sourcedata', (event) => {
       if (offline || !expectedTileSources.has(event.sourceId) || event.tile?.state !== 'loaded') return
       loadedTileSources.add(event.sourceId)
@@ -490,10 +497,11 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
         map.easeTo({ center: coordinates[0] as [number, number], zoom: 12.5, duration })
       }
     }
+    vehiclesInViewRef.current()
   }, [vehicles, selectedTrId, selectedRisk, track, styleRevision, mapSizeRevision, viewMode, focusSelectionToken, networkTracks, simTime, source])
 
   return (
-    <section id="vehicle-map" className="map-panel" aria-label="Карта движения бортов">
+    <section id="vehicle-map" className="map-panel" aria-label="Карта движения бортов" data-in-view={vehiclesInView ?? undefined}>
       <PanelHeader compact className="map-header" titleAs="h2" icon={<Layers3 size={16} className="heading-icon" />} title="Карта"
         actions={<div className="map-header-actions">
           {mapUnavailable ? <span className="map-basemap-status">Карта недоступна</span> : basemapStatus === 'offline' && <span className="map-basemap-status" title="Картографические тайлы недоступны, показана схема">Схема без карты</span>}
