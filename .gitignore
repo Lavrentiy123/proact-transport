@@ -32,7 +32,7 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
-# ML (Лаврентий)
+# ML (Ямпуров)
 .venv312/
 cache/
 *.parquet

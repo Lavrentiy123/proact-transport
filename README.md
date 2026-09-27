@@ -101,7 +101,7 @@ python -m venv .venv312 && .venv312/Scripts/python -m pip install -r requirement
 ```text
 ├── backend/        # FastAPI: NDTP-сервер, replay, тик прогнозов, алерты, REST + WebSocket (Расцов)
 ├── frontend/       # дашборд диспетчера: React + MapLibre, nginx (Пуртов)
-├── ml_core/        # сервис инференса: CatBoost + ONNX, интервал, причины, /v1/predict (Лаврентий)
+├── ml_core/        # сервис инференса: CatBoost + ONNX, интервал, причины, /v1/predict (Ямпуров)
 ├── features/       # общий пакет признаков и детектор прибытий — одинаково офлайн и на потоке
 ├── src/ml/         # обучение и валидация моделей; src/eval/ — онлайн-оценка; src/product/ — материалы питча
 ├── models/         # обученные модели (.cbm, .onnx), feature_config.json, model_card.json
@@ -115,4 +115,4 @@ python -m venv .venv312 && .venv312/Scripts/python -m pip install -r requirement
 
 ## Команда «ПроАкт.Транспорт»
 
-Лаврентий — ML и интеграция (капитан) · Расцов — backend и DevOps · Пуртов — frontend и дашборд.
+Ямпуров — ML и интеграция (капитан) · Расцов — backend и DevOps · Пуртов — frontend и дашборд.
