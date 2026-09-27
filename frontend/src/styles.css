@@ -37,15 +37,6 @@
 .connection-details[open] summary::after { content: '⌃'; }
 .connection-details > div { position: absolute; z-index: var(--z-popover); top: calc(100% + 8px); right: 0; display: grid; gap: var(--sp-2); width: min(300px, 80vw); padding: var(--sp-3); border: 1px solid var(--line-control); border-radius: var(--r-card); background: var(--surface-2); box-shadow: var(--shadow-popover); line-height: var(--lh-text); }
 .playback-speed { font-family: var(--font-mono); font-size: var(--fs-mono); font-weight: var(--fw-medium); letter-spacing: var(--ls-mono); color: var(--text-secondary); margin-left: var(--sp-1); }
-/* App.tsx banners (agent 2's zone) keep their classes until they move to <Banner>; they share its look. */
-.connection-banner { --tone: var(--risk-red); --tone-tint: var(--risk-red-tint); }
-.degraded-banner, .route-banner { --tone: var(--risk-yellow); --tone-tint: var(--risk-yellow-tint); }
-.connection-banner, .degraded-banner, .route-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); border-inline: 1px solid var(--tone); background: var(--tone-tint); color: var(--text-primary); font-size: var(--fs-12); line-height: var(--lh-text); }
-.degraded-banner { font-weight: var(--fw-semibold); }
-:is(.connection-banner, .degraded-banner) > svg { flex: none; color: var(--tone); }
-.connection-message { flex: 1 1 230px; min-width: 0; }
-.connection-action { margin-left: auto; min-height: 32px; padding: var(--sp-1) var(--sp-3); border: 1px solid var(--line-control); border-radius: var(--r-control); background: var(--surface-2); color: var(--text-primary); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; }
-.connection-action:hover, .connection-action:focus-visible { background: var(--accent-tint); }
 .workbench { display: grid; grid-template-columns: minmax(260px, 21%) minmax(0, 1fr) minmax(290px, 23%); grid-template-rows: minmax(0, 1fr); min-height: 680px; height: min(72vh, 760px); border: 1px solid var(--line-subtle); border-top: 0; }
 .alerts-panel { border-right: 1px solid var(--line-subtle); }
 .incident-panel { border-left: 1px solid var(--line-subtle); overflow-y: auto; }
@@ -162,11 +153,17 @@
 .map-panel :is(.maplibregl-popup-anchor-bottom, .maplibregl-popup-anchor-bottom-left, .maplibregl-popup-anchor-bottom-right) .maplibregl-popup-tip { border-top-color: var(--surface-2); }
 .map-panel .maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--surface-2); }
 .map-panel .maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--surface-2); }
+/* Inter set the legend wider: below 1600 px the hint would sit on it, and the place label duplicates the source shown in the header. */
+@media (max-width: 1600px) {
+  .map-route-hint { display: none; }
+}
+@media (max-width: 1366px) {
+  .map-location-label { display: none; }
+}
 @media (max-width: 1200px) {
   .dashboard { padding-inline: var(--sp-4); }
   .workbench { grid-template-columns: minmax(235px, 23%) minmax(0, 1fr) minmax(265px, 25%); }
   .summary-metric { min-width: 100px; padding-inline: var(--sp-3); }
-  .map-route-hint { display: none; }
 }
 @media (max-width: 980px) {
   .workbench { height: auto; grid-template-columns: 1fr 1fr; grid-template-rows: none; }

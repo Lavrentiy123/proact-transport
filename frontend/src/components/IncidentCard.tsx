@@ -45,7 +45,7 @@ function dwell(value: number | null | undefined): string {
 export default function IncidentCard({ source, connected, vehicle, alert, forecast, simTime, positionAgeS, forecastWallAgeS, segmentFrom, outcome, onAction, hasSchedule }: Props) {
   const [busy, setBusy] = useState<'apply' | 'dismiss' | null>(null)
   if (!vehicle && !alert) {
-    return <Panel as="aside" className="incident-panel"><PanelHeader eyebrow="Детали события" title="Карточка борта" /><EmptyState icon={<BusFront size={30} />} title="Выберите борт" hint="Нажмите на маркер или предупреждение." /></Panel>
+    return <Panel as="aside" className="incident-panel" aria-label="Карточка выбранного борта"><PanelHeader eyebrow="Детали события" title="Карточка борта" /><EmptyState icon={<BusFront size={30} />} title="Выберите борт" hint="Нажмите на маркер или предупреждение." /></Panel>
   }
 
   async function act(action: 'apply' | 'dismiss') {
