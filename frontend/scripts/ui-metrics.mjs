@@ -3,7 +3,8 @@
 //
 //   node scripts/ui-metrics.mjs [--base http://127.0.0.1:5173/] [--out ui-metrics/report.json] [--strict]
 //
-// Without --base the script starts Vite on 5173 and the stub (STUB_CASE=status-skew) on 8000 itself.
+// Without --base the script starts Vite and the stub (STUB_CASE=status-skew) itself, on E2E_WEB_PORT and
+// E2E_STUB_PORT (5173 and 8000 by default).
 // --strict exits with code 1 when any violation is found. PW_CHROMIUM_PATH selects a local Chromium.
 import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -97,14 +98,17 @@ async function waitFor(url, ms = 20_000) {
 }
 
 async function startServers() {
-  if (await healthy('http://127.0.0.1:8000/health')) throw new Error('Port 8000 is busy: stop the backend or pass --base')
-  const stub = spawn(process.execPath, [resolve(root, 'scripts/mock-backend.mjs')], { env: { ...process.env, STUB_CASE: 'status-skew' }, stdio: 'ignore' })
+  const webPort = Number(process.env.E2E_WEB_PORT ?? 5173)
+  const stubPort = Number(process.env.E2E_STUB_PORT ?? 8000)
+  if (await healthy(`http://127.0.0.1:${stubPort}/health`)) throw new Error(`Port ${stubPort} is busy: stop the backend or pass --base`)
+  const stub = spawn(process.execPath, [resolve(root, 'scripts/mock-backend.mjs')], { env: { ...process.env, STUB_CASE: 'status-skew', STUB_PORT: String(stubPort) }, stdio: 'ignore' })
+  process.env.BACKEND_ORIGIN = `http://localhost:${stubPort}`
   const { createServer } = await import('vite')
-  const vite = await createServer({ root, logLevel: 'silent', server: { host: '127.0.0.1', port: 5173, strictPort: true } })
+  const vite = await createServer({ root, logLevel: 'silent', server: { host: '127.0.0.1', port: webPort, strictPort: true } })
   await vite.listen()
-  await waitFor('http://127.0.0.1:8000/health')
+  await waitFor(`http://127.0.0.1:${stubPort}/health`)
   return {
-    base: 'http://127.0.0.1:5173/',
+    base: `http://127.0.0.1:${webPort}/`,
     async close() {
       await vite.close()
       const exited = new Promise((done) => stub.once('exit', done))

@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { expect, test as base, type Page } from '@playwright/test'
 
-export const STUB_PORT = 8000
+export const STUB_PORT = Number(process.env.E2E_STUB_PORT ?? 8000)
 const script = fileURLToPath(new URL('../scripts/mock-backend.mjs', import.meta.url))
 
 export interface Stub {
@@ -14,7 +14,7 @@ async function healthy(): Promise<boolean> {
   try { return (await fetch(`http://127.0.0.1:${STUB_PORT}/health`)).ok } catch { return false }
 }
 
-/** The test stream from scripts/mock-backend.mjs on port 8000, where the Vite proxy expects the backend. */
+/** The test stream from scripts/mock-backend.mjs on the port the Vite proxy points at (E2E_STUB_PORT, 8000 by default). */
 function createStub(): Stub {
   let child: ChildProcess | null = null
   let lastEnv: Record<string, string> = {}
