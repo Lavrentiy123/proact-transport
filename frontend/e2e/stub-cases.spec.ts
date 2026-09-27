@@ -23,7 +23,7 @@ test('partial-both: отдельные кадры alert и status не сбив�
   await expect(connectionPill(page, 'LIVE')).toBeVisible()
   await page.waitForTimeout(5_000)
   await expect(connectionPill(page, 'LIVE')).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Состояние движения' })).toContainText(/1\s*алертов/)
+  await expect(page.getByRole('region', { name: 'Состояние движения' })).toContainText(/1\s*предупреждение(?!й)/)
   await page.getByRole('region', { name: 'Управление источником данных' }).getByText('Диагностика').click()
   await expect(page.getByText('Отброшено кадров: 0')).toBeVisible()
 })

@@ -16,6 +16,24 @@ export function formatCountdown(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
 }
 
+type PluralForms = { one: string; few: string; many: string }
+const ruPlural = new Intl.PluralRules('ru-RU')
+
+/** «1 предупреждение», «3 предупреждения», «5 предупреждений»: форма слова по числу. */
+export function plural(count: number, forms: PluralForms): string {
+  const rule = ruPlural.select(count)
+  return rule === 'one' ? forms.one : rule === 'few' ? forms.few : forms.many
+}
+
+export const ALERT_FORMS: PluralForms = { one: 'предупреждение', few: 'предупреждения', many: 'предупреждений' }
+
+/** «план через 4 мин» или, если плановое время уже прошло, «план прошёл 2 мин назад». */
+export function planCountdown(secondsToPlan: number | null | undefined): string {
+  if (secondsToPlan == null || !Number.isFinite(secondsToPlan)) return 'план —'
+  const minutes = Math.max(1, Math.round(Math.abs(secondsToPlan) / 60))
+  return secondsToPlan >= 0 ? `план через ${minutes} мин` : `план прошёл ${minutes} мин назад`
+}
+
 export function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }
