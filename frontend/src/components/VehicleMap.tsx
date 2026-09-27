@@ -339,9 +339,25 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       setBasemapStatus('offline')
       map.setStyle(offlineStyle(), { diff: false })
     }
+    // A hidden page does not render, so it requests no tiles: a basemap check that comes
+    // due while the page is hidden waits another 8 s after the page is shown.
+    const shownTimers = new Set<ReturnType<typeof setTimeout>>()
+    const shownListeners = new Set<() => void>()
+    const checkWhenShown = (check: () => void) => () => {
+      if (!document.hidden) return check()
+      const onShow = () => {
+        if (document.hidden) return
+        document.removeEventListener('visibilitychange', onShow)
+        shownListeners.delete(onShow)
+        const timer = setTimeout(() => { shownTimers.delete(timer); checkWhenShown(check)() }, 8000)
+        shownTimers.add(timer)
+      }
+      document.addEventListener('visibilitychange', onShow)
+      shownListeners.add(onShow)
+    }
     // A remote style that never arrives (slow VPN, blocked host) must not leave the
     // map without vehicles and routes: the local schematic takes over.
-    const styleTimer = offline ? null : setTimeout(() => { if (!styleLoaded) useOfflineStyle() }, 8000)
+    const styleTimer = offline ? null : setTimeout(checkWhenShown(() => { if (!styleLoaded) useOfflineStyle() }), 8000)
     map.on('style.load', () => {
       styleLoaded = true
       if (!offline) {
@@ -352,9 +368,9 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
           // MapLibre treats a 404 tile as a settled tile without emitting an
           // error. Require at least one successful base tile before calling
           // the geographic background ready.
-          tileCheckTimer = setTimeout(() => {
+          tileCheckTimer = setTimeout(checkWhenShown(() => {
             if (loadedTileSources.size === 0) useOfflineStyle()
-          }, 8000)
+          }), 8000)
         }
       }
       if (map.getSource('vehicles')) return
@@ -397,6 +413,8 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
     return () => {
       if (tileCheckTimer) clearTimeout(tileCheckTimer)
       if (styleTimer) clearTimeout(styleTimer)
+      shownTimers.forEach((timer) => clearTimeout(timer))
+      shownListeners.forEach((listener) => document.removeEventListener('visibilitychange', listener))
       sizeObserver?.disconnect()
       window.removeEventListener('resize', handleResize)
       container.removeEventListener('pointerdown', markUserMoved)

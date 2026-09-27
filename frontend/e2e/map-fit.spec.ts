@@ -32,3 +32,25 @@ for (const viewport of viewports) {
     await expectAllInView(page, onMap)
   })
 }
+
+// A hidden tab does not render, so it requests no tiles: the basemap wait must not run out
+// until the page is shown, otherwise the map opens on the schematic.
+test('скрытая вкладка не переключает подложку на схему, пока страница не показана', async ({ page }) => {
+  test.setTimeout(45_000)
+  await page.addInitScript(() => {
+    let hidden = true
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden })
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') })
+    ;(window as unknown as { showPage: () => void }).showPage = () => {
+      hidden = false
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+  })
+  await page.route(/tiles\.openfreemap\.org/, () => {})
+  await page.goto('/?source=demo')
+  await expect(connectionPill(page, 'REPLAY')).toBeVisible()
+  await page.waitForTimeout(9_000)
+  await expect(page.locator('.map-basemap-status')).toHaveCount(0)
+  await page.evaluate(() => (window as unknown as { showPage: () => void }).showPage())
+  await expect(page.locator('.map-basemap-status')).toHaveText('Схема без карты', { timeout: 12_000 })
+})
