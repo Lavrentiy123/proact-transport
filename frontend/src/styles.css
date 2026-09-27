@@ -1,5 +1,6 @@
 @import "./styles/tokens.css";
 @import "./styles/base.css";
+@import "./styles/ui.css";
 
 .dashboard { min-height: 100vh; max-width: 1920px; margin: 0 auto; padding: 0 var(--sp-6) var(--sp-4); background: var(--bg-canvas); }
 .topbar { min-height: 60px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-subtle); gap: var(--sp-6); }
