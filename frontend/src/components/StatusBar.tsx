@@ -1,5 +1,6 @@
-import { Activity, BusFront, Clock3, Pause, Play, RotateCcw, Target, Wifi, WifiOff } from 'lucide-react'
+import { Activity, BusFront, Clock3, Pause, Play, RotateCcw, Target, TriangleAlert, Wifi, WifiOff } from 'lucide-react'
 import type { Scenario } from '../data/scenarios'
+import type { ConnectionState } from '../data/liveTransport'
 import type { HorizonMetrics, WsMessage } from '../types/contracts'
 import { displayClock, displayDay } from '../utils/time'
 
@@ -7,6 +8,13 @@ interface Props {
   snapshot: WsMessage
   connected: boolean
   source: 'demo' | 'live'
+  liveConnection: ConnectionState
+  liveStalled: boolean
+  hasVehicleSnapshot: boolean
+  hasAlertSnapshot: boolean
+  lastVehicleFrameAt: number | null
+  wallNow: number
+  liveTimeLagS: number
   scenario: Scenario
   playing: boolean
   onScenarioChange: (scenario: Scenario) => void
@@ -21,7 +29,7 @@ interface Props {
 const MIN_RESOLVED = 200
 
 export default function StatusBar({
-  snapshot, connected, source, scenario, playing, onScenarioChange,
+  snapshot, connected, source, liveConnection, liveStalled, hasVehicleSnapshot, hasAlertSnapshot, lastVehicleFrameAt, wallNow, liveTimeLagS, scenario, playing, onScenarioChange,
   onTogglePlayback, onRestart, onSourceChange, horizon,
 }: Props) {
   const vehicles = snapshot.vehicles ?? []
@@ -29,6 +37,16 @@ export default function StatusBar({
   const red = vehicles.filter((vehicle) => vehicle.forecast?.risk === 'red').length
   const yellow = vehicles.filter((vehicle) => vehicle.forecast?.risk === 'yellow').length
   const mode = source === 'demo' ? 'REPLAY' : snapshot.status?.mode ?? 'DEGRADED'
+  const degraded = connected && mode === 'DEGRADED'
+  const waiting = source === 'live' && liveConnection === 'connected' && !connected
+  const count = (value: number) => hasVehicleSnapshot ? value : '—'
+  // A broken socket outranks the stale-data detector: the dispatcher must see that the link is down.
+  const offline = source === 'demo' ? !connected : liveConnection === 'disconnected'
+  const connecting = source === 'live' && liveConnection === 'connecting'
+  const pillState = connected ? degraded ? 'is-degraded' : 'is-connected' : offline ? 'is-disconnected' : 'is-waiting'
+  const pillText = connected ? degraded ? 'ДЕГРАДАЦИЯ' : mode : offline ? 'НЕТ СВЯЗИ' : connecting ? 'ПОДКЛЮЧЕНИЕ' : liveStalled ? 'ДАННЫЕ УСТАРЕЛИ' : waiting ? 'ОЖИДАНИЕ ДАННЫХ' : 'НЕТ СВЯЗИ'
+  const dotState = source === 'demo' ? connected ? 'is-ok' : 'is-bad'
+    : connected ? degraded ? 'is-wait' : 'is-ok' : liveConnection === 'disconnected' ? 'is-bad' : 'is-wait'
 
   return (
     <>
@@ -41,10 +59,9 @@ export default function StatusBar({
           </div>
         </div>
         <div className="topbar-right">
-          <div className={`mode-pill ${!connected ? 'is-disconnected' : mode === 'DEGRADED' ? 'is-degraded' : 'is-connected'}`}
-            title={mode === 'DEGRADED' ? 'Пакетов NDTP нет дольше 15 с: прогноз по расписанию' : undefined}>
-            {connected ? <Wifi size={15} /> : <WifiOff size={15} />}
-            <span>{connected ? mode : 'НЕТ СВЯЗИ'}</span>
+          <div className={`mode-pill ${pillState}`} title={degraded ? 'Пакетов NDTP нет дольше 15 с: прогноз по расписанию' : undefined}>
+            {degraded ? <TriangleAlert size={15} /> : connected ? <Wifi size={15} /> : <WifiOff size={15} />}
+            <span>{pillText}</span>
           </div>
           <div className="header-time"><Clock3 size={17} /> {displayClock(snapshot.sim_time)} <span>МСК</span></div>
           <div className="header-day">{displayDay(snapshot.sim_time)}</div>
@@ -58,10 +75,10 @@ export default function StatusBar({
           <span className="summary-caption">Прогноз отклонений за 10–15 минут</span>
         </div>
         <div className="summary-metrics">
-          <div className="summary-metric"><BusFront size={19} /><span><strong>{vehicles.length}</strong><small>бортов</small></span></div>
-          <div className="summary-metric metric-red"><span className="metric-dot" /><span><strong>{red}</strong><small>критично</small></span></div>
-          <div className="summary-metric metric-yellow"><span className="metric-dot" /><span><strong>{yellow}</strong><small>внимание</small></span></div>
-          <div className="summary-metric"><Activity size={19} /><span><strong>{alerts.length}</strong><small>алертов</small></span></div>
+          <div className="summary-metric"><BusFront size={19} /><span><strong>{count(vehicles.length)}</strong><small>{source === 'demo' ? 'в демо-снимке' : connected ? 'в потоке' : 'в последнем снимке'}</small></span></div>
+          <div className="summary-metric metric-red"><span className="metric-dot" /><span><strong>{count(red)}</strong><small>критично</small></span></div>
+          <div className="summary-metric metric-yellow"><span className="metric-dot" /><span><strong>{count(yellow)}</strong><small>внимание</small></span></div>
+          <div className="summary-metric"><Activity size={19} /><span><strong>{hasAlertSnapshot ? alerts.length : '—'}</strong><small>алертов</small></span></div>
           {source === 'live' && horizon && <div className="summary-metric metric-horizon" title={`Сверено с фактическим прибытием: ${horizon.resolved_total} из ${horizon.forecasts_total}`}>
             <Target size={19} /><span><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'прогнозов за 10–15 мин' : 'прогнозов пока нет'}</small></span></div>}
           {source === 'live' && horizon && horizon.forecasts_total > 0 && (horizon.online_mae_model_s != null && horizon.resolved_total >= MIN_RESOLVED
@@ -73,7 +90,7 @@ export default function StatusBar({
       </section>
 
       <section className="demo-toolbar" aria-label="Управление источником данных">
-        <div className="demo-toolbar-label"><span className="demo-dot" />{source === 'demo' ? 'ДЕМОНСТРАЦИЯ' : 'ПОДКЛЮЧЕНИЕ К ПОТОКУ'}</div>
+        <div className="demo-toolbar-label"><span className={`demo-dot ${dotState}`} />{source === 'demo' ? 'Демо-сценарий' : degraded ? 'Поток в деградации' : connected ? 'Поток подключён' : offline ? 'Нет связи с потоком' : connecting ? 'Подключение к потоку' : liveStalled ? 'Данные устарели' : 'Ожидаем снимок'}</div>
         <div className="toolbar-controls">
           <label className="toolbar-select-label" htmlFor="source-select">Источник</label>
           <select id="source-select" value={source} onChange={(event) => onSourceChange(event.target.value as 'demo' | 'live')}>
@@ -97,6 +114,15 @@ export default function StatusBar({
             </>
           )}
         </div>
+        {source === 'live' && <details className="connection-details"><summary>Диагностика</summary><div>
+          <span>WebSocket: {liveConnection === 'connected' ? 'соединён' : liveConnection === 'connecting' ? 'подключается' : 'отключён'}</span>
+          <span>Снимок бортов: {lastVehicleFrameAt == null ? 'ещё не получен' : `${Math.max(0, Math.floor((wallNow - lastVehicleFrameAt) / 1000))} с назад`}</span>
+          <span>Отставание позиций от часов потока: {hasVehicleSnapshot ? `${Math.floor(liveTimeLagS)} с` : 'нет данных'}</span>
+          <span>Возраст пакета на момент статуса: {snapshot.status?.last_packet_age_s == null ? 'нет данных' : `${Math.round(snapshot.status.last_packet_age_s)} с`}</span>
+          <span>Модель: {snapshot.status?.model_version || 'нет данных'}</span>
+          <span>ML-ядро: {snapshot.status == null ? 'нет данных' : snapshot.status.ml_core_ok ? 'доступно' : 'недоступно'}</span>
+          <span>Контракт frontend: v0 · поток может быть локальным stub</span>
+        </div></details>}
       </section>
     </>
   )
