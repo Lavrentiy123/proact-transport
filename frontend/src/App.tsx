@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { CloudOff, SignalZero, TriangleAlert } from 'lucide-react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, CloudOff, SignalZero, TriangleAlert } from 'lucide-react'
 import AlertList from './components/AlertList'
 import IncidentCard from './components/IncidentCard'
 import MareyChart from './components/MareyChart'
@@ -15,7 +15,7 @@ import { useSelectedTrack } from './data/useSelectedTrack'
 import { stopLabel } from './utils/format'
 import { trackAtTime } from './utils/track'
 import { Banner, Button } from './ui'
-import { contractTimeMs } from './utils/time'
+import { contractTimeMs, displayClock } from './utils/time'
 import { emptySelection, forecastForSelection, nextAutoSelection, pickVehicle, selectedAlert, selectionAfterEpoch, type Selection } from './utils/selection'
 
 const VehicleMap = lazy(() => import('./components/VehicleMap'))
@@ -94,6 +94,21 @@ export default function App() {
     return last ? stopLabel(last.name, last.stop_id) : null
   }, [track, snapshot.sim_time])
 
+  // «Связь восстановлена» — только после настоящего обрыва или застоя живого потока, не при первом подключении.
+  const [restoredAt, setRestoredAt] = useState<string | null>(null)
+  const linkLost = useRef(false)
+  const everConnected = useRef(false)
+  useEffect(() => {
+    if (!isLive) { linkLost.current = false; everConnected.current = false; setRestoredAt(null); return }
+    if (!connected) { if (everConnected.current) linkLost.current = true; return }
+    everConnected.current = true
+    if (!linkLost.current) return
+    linkLost.current = false
+    setRestoredAt(displayClock(snapshot.sim_time))
+    const timer = window.setTimeout(() => setRestoredAt(null), 5000)
+    return () => window.clearTimeout(timer)
+  }, [isLive, connected])
+
   useEffect(() => {
     if (source !== 'demo' || !playing || scenario === 'disconnected') return
     const timer = window.setInterval(() => {
@@ -158,6 +173,7 @@ export default function App() {
           : liveStalled ? 'Данные о бортах не обновляются более 15 секунд. Показан последний снимок.' : 'Соединение установлено. Ожидаем новый снимок с положением бортов.'
           : liveConnection === 'connecting' ? 'Подключение к живому потоку…' : 'Живой поток недоступен. Повторное подключение выполняется автоматически.'
         : 'Демо-поток прерван. На экране последний снимок; положение бортов может быть устаревшим.'}</Banner>}
+      {connected && restoredAt && <Banner tone="success" className="restored-banner" icon={<CheckCircle2 size={17} />}>Связь восстановлена в {restoredAt}</Banner>}
       {degraded && <Banner tone="warning" className="degraded-banner" icon={<TriangleAlert size={17} />}>Поток телеметрии прерван (деградация): пакетов нет дольше 15 с, прогнозы строятся по расписанию. Связь восстановится автоматически.</Banner>}
       {mlDown && <Banner tone="warning" className="degraded-banner" icon={<CloudOff size={17} />}>ML-ядро недоступно: прогнозы «по расписанию» до восстановления сервиса.</Banner>}
       {source === 'live' && trackError && <Banner tone="warning" className="route-banner">Маршрут выбранного борта недоступен. Положение и прогноз из потока продолжают отображаться.</Banner>}

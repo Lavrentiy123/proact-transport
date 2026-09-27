@@ -50,6 +50,7 @@ test.describe('живой поток на stub', () => {
     await expect(page.getByRole('region', { name: 'Состояние движения' }).getByText('в последнем снимке')).toBeVisible()
     await stub.start()
     await expect(connectionPill(page, 'LIVE')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(/^Связь восстановлена в \d\d:\d\d:\d\d$/)).toBeVisible()
     await expect(page.getByText('Живой поток недоступен. Повторное подключение выполняется автоматически.')).toHaveCount(0)
   })
 
