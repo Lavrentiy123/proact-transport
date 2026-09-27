@@ -47,7 +47,7 @@
 
 ### Модели на детекторе v2 (ML-T9), 27.09 01:10, replay ×10, 8 минут
 
-Стек пересобран на `main` `3e63a3b` (`m_online-v2-ens-aa005cf`: детектор v2, ансамбль CatBoost 0.2 + CatBoost-sched 0.5 +
+Стек пересобран на `main` `abc90ee` (`m_online-v2-ens-aa005cf`: детектор v2, ансамбль CatBoost 0.2 + CatBoost-sched 0.5 +
 PyTorch/ONNX 0.3), тот же ноутбук и та же команда; сырой вывод —
 [`reports/logs/perf_load_v2_detector.jsonl`](../reports/logs/perf_load_v2_detector.jsonl).
 
@@ -103,6 +103,6 @@ PyTorch/ONNX 0.3), тот же ноутбук и та же команда; сы�
 
 `curl http://localhost:8000/metrics` — `tick_duration_ms{quantile}`, `infer_ms{quantile}` (последние 2000 тиков), `ndtp_packets_total`, `ndtp_crc_errors_total`, `dropped_total{kind}`, `online_mae_seconds{model}`, `horizon_share_in_window`.
 
-## Повтор после исправлений по ревью (коммит `483dced`)
+## Повтор после исправлений по ревью (коммит `fd5ec41`)
 
 `python scripts/measure_perf.py load --minutes 2`, сразу после chaos-теста — в окно квантилей (последние 2000 тиков) попали тики с остановленным ml-core, поэтому p99 выше, чем в 10-минутном прогоне: тик p50 / p99 14.3 / 35.8 мс, ml-core 8.2 / 23.0 мс, перегрузок тика 2 (во время остановки ml-core), ошибок 0, CRC 0; `GET /api/v1/vehicles` 21.6 / 43.8 мс; WS 0.96 с. Сырой вывод — `docs/reports/logs/after_fix_load2min.jsonl`.
