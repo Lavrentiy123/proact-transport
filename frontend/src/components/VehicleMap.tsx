@@ -36,6 +36,24 @@ const NETWORK_BACK_MS = 15 * 60_000
 const NETWORK_AHEAD_MS = 45 * 60_000
 const basemapStyleUrl = import.meta.env.VITE_MAP_STYLE_URL?.trim() || 'https://tiles.openfreemap.org/styles/dark'
 const installedMapHandlers = new WeakSet<MapLibreMap>()
+// fitBounds refuses to move when the padding leaves no room, so no side may take more than this share of the canvas.
+const MAX_PADDING_SHARE = 0.4
+
+function overviewPadding(map: MapLibreMap, legend: HTMLElement | null): maplibregl.PaddingOptions {
+  const canvas = map.getContainer().getBoundingClientRect()
+  const narrowMap = canvas.width <= 640
+  // The legend plate sits over the lower left corner; keep the southernmost vehicle above it.
+  const plate = legend?.getBoundingClientRect()
+  const legendGap = 16
+  const bottom = plate && plate.height > 0 ? canvas.bottom - plate.top + legendGap : narrowMap ? 130 : 100
+  const clamp = (value: number, size: number) => Math.max(0, Math.min(value, size * MAX_PADDING_SHARE))
+  return {
+    top: clamp(32, canvas.height),
+    bottom: clamp(bottom, canvas.height),
+    left: clamp(narrowMap ? 24 : 48, canvas.width),
+    right: clamp(narrowMap ? 48 : 64, canvas.width),
+  }
+}
 
 // Built when the map is created, so the colour comes from the loaded tokens.
 const offlineStyle = (): maplibregl.StyleSpecification => ({
@@ -220,6 +238,9 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
 
 export default function VehicleMap({ source, vehicles, selectedTrId, selectedRisk, focusSelectionToken, resetViewToken, track, loading, onSelect, networkTracks, simTime }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const legendRef = useRef<HTMLDivElement>(null)
+  const vehiclesInViewRef = useRef<() => void>(() => {})
+  const [vehiclesInView, setVehiclesInView] = useState<number | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const onSelectRef = useRef(onSelect)
   const previousFocusRef = useRef(focusSelectionToken)
@@ -234,6 +255,10 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
   const validVehicles = vehicles.filter((item) => validCoordinate(item.lon, item.lat))
   const hiddenCount = vehicles.length - validVehicles.length
   onSelectRef.current = onSelect
+  vehiclesInViewRef.current = () => {
+    const bounds = mapRef.current?.getBounds()
+    setVehiclesInView(bounds ? validVehicles.filter((item) => bounds.contains([item.lon, item.lat])).length : null)
+  }
 
   useEffect(() => {
     if (focusSelectionToken === previousFocusRef.current) return
@@ -341,6 +366,8 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       lastFittedRef.current = null
       setStyleRevision((revision) => revision + 1)
     })
+    map.on('moveend', () => vehiclesInViewRef.current())
+    map.on('resize', () => vehiclesInViewRef.current())
     map.on('sourcedata', (event) => {
       if (offline || !expectedTileSources.has(event.sourceId) || event.tile?.state !== 'loaded') return
       loadedTileSources.add(event.sourceId)
@@ -479,10 +506,8 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       if (coordinates.length > 1) {
         const bounds = new maplibregl.LngLatBounds()
         coordinates.forEach(([lon, lat]) => bounds.extend([lon, lat]))
-        // The legend plate sits over the lower left corner; keep the southernmost vehicle above it.
-        const narrowMap = map.getContainer().clientWidth <= 640
         map.fitBounds(bounds, {
-          padding: { top: 32, bottom: narrowMap ? 130 : 100, left: narrowMap ? 24 : 48, right: narrowMap ? 48 : 64 },
+          padding: overviewPadding(map, legendRef.current),
           maxZoom: 12.8,
           duration,
         })
@@ -490,10 +515,11 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
         map.easeTo({ center: coordinates[0] as [number, number], zoom: 12.5, duration })
       }
     }
+    vehiclesInViewRef.current()
   }, [vehicles, selectedTrId, selectedRisk, track, styleRevision, mapSizeRevision, viewMode, focusSelectionToken, networkTracks, simTime, source])
 
   return (
-    <section id="vehicle-map" className="map-panel" aria-label="Карта движения бортов">
+    <section id="vehicle-map" className="map-panel" aria-label="Карта движения бортов" data-in-view={vehiclesInView ?? undefined}>
       <PanelHeader compact className="map-header" titleAs="h2" icon={<Layers3 size={16} className="heading-icon" />} title="Карта"
         actions={<div className="map-header-actions">
           {mapUnavailable ? <span className="map-basemap-status">Карта недоступна</span> : basemapStatus === 'offline' && <span className="map-basemap-status" title="Картографические тайлы недоступны, показана схема">Схема без карты</span>}
@@ -517,7 +543,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       <div className="map-stage">
       <div ref={containerRef} className="map-canvas" />
       {basemapStatus === 'offline' && <div className="map-grid-overlay" aria-hidden="true" />}
-      <div className="map-legend">
+      <div ref={legendRef} className="map-legend">
         <ul className="map-legend-items" aria-label="Обозначения">
           {(['red', 'yellow', 'green', 'none'] as const).map((risk) => <li key={risk} className={`risk-${risk}`}>
             <svg className="map-legend-shape" viewBox="0 0 24 24" aria-hidden="true"><path d={SHAPE_PATHS[RISK[risk].shape]} fillRule="evenodd" /></svg>{RISK[risk].label}</li>)}
