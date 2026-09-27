@@ -1,0 +1,49 @@
+name: Frontend checks
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - 'contracts/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'contracts/**'
+      - '.github/workflows/frontend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:contracts
+      - run: npm run build
+      - name: Build container and check static delivery plus REST and WS proxy
+        run: |
+          docker build -t proact-transport-frontend-smoke .
+          docker network create proact-transport-smoke
+          docker run -d --name proact-transport-backend-smoke --network proact-transport-smoke --network-alias backend --mount "type=bind,source=$PWD,target=/app,readonly" --workdir /app node:24-alpine node scripts/mock-backend.mjs
+          docker run -d --name proact-transport-frontend-smoke --network proact-transport-smoke -p 3000:3000 proact-transport-frontend-smoke
+          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://localhost:3000/health
+          curl -fsS http://localhost:3000/ | grep -q '<div id="root"></div>'
+          node scripts/proxy-smoke.mjs
+      - name: Remove smoke container
+        if: always()
+        run: |
+          docker rm -f proact-transport-frontend-smoke proact-transport-backend-smoke || true
+          docker network rm proact-transport-smoke || true

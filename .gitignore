@@ -24,6 +24,7 @@ frontend/dist/
 # Секреты и окружение
 .env
 .env.*
+!frontend/.env.example
 
 # IDE / OS
 .vscode/
