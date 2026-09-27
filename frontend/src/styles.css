@@ -3,6 +3,7 @@
 @import "./styles/ui.css";
 @import "./styles/shell.css";
 @import "./styles/alerts.css";
+@import "./styles/card.css";
 
 .connection-details { position: relative; color: var(--text-secondary); font-size: var(--fs-12); }
 .connection-details summary { cursor: pointer; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-control); border-radius: var(--r-control); list-style: none; }

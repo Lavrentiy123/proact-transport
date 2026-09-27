@@ -70,6 +70,15 @@ describe('IncidentCard', () => {
     expect(screen.getByText(/Не удалось выполнить действие: алерт уже снят или решён/)).toBeTruthy()
   })
 
+  it('without a link disables the actions, explains why and marks the data as frozen', () => {
+    renderCard({ connected: false, onAction: vi.fn() })
+    expect((screen.getByRole('button', { name: 'Отправить водителю' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Отклонить' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText('Нет связи — отправка недоступна')).toBeTruthy()
+    expect(screen.getAllByText(/не обновляется с \d\d:\d\d:\d\d/)).toHaveLength(2)
+    expect(screen.getByText('Вероятный диапазон')).toBeTruthy()
+  })
+
   it('warns about a stale position', () => {
     renderCard({ vehicle: { ...vehicle, stale: true }, connected: false })
     expect(screen.getByText(/Новый снимок пока не получен\. Положение может быть неточным\./)).toBeTruthy()
