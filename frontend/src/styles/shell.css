@@ -15,7 +15,7 @@
 .header-time { flex: none; gap: var(--sp-1); color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: var(--fw-semibold); font-size: var(--fs-15); white-space: nowrap; }
 .header-time svg { color: var(--text-tertiary); }
 .header-time span { color: var(--text-tertiary); font-family: var(--font-mono); font-size: var(--fs-mono); font-weight: var(--fw-medium); letter-spacing: var(--ls-mono); }
-.header-counters { gap: var(--sp-3); min-width: 0; }
+.header-counters { flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); min-width: 0; }
 .header-counter { gap: var(--sp-1); color: var(--text-tertiary); white-space: nowrap; }
 .header-counter strong { color: var(--text-primary); font-size: var(--fs-15); font-variant-numeric: tabular-nums; line-height: 1; }
 .header-counter small { color: var(--text-secondary); font-size: var(--fs-12); }
@@ -46,7 +46,7 @@
   .incident-panel { min-height: 0; }
 }
 @media (min-width: 1200px) {
-  .topbar { flex-wrap: nowrap; }
+  .topbar, .header-counters { flex-wrap: nowrap; }
   .workbench { grid-template-columns: 320px minmax(0, 1fr) 360px; }
 }
 @media (max-width: 1439px) {
