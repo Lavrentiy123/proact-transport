@@ -21,7 +21,7 @@ test('S6: демо по сценарию показа (docs/DEMO_SCRIPT.md)', as
   const summary = page.getByRole('region', { name: 'Состояние движения' })
   await expect(summary).toContainText(/3\s*в демо-снимке/)
   await expect(summary).toContainText(/1\s*критично/)
-  await expect(summary).toContainText(/1\s*алертов/)
+  await expect(summary).toContainText(/1\s*предупреждение(?!й)/)
   const card = page.getByRole('complementary', { name: 'Карточка выбранного борта' })
   await expect(card.getByRole('heading', { name: 'Борт 131672' })).toBeVisible()
   await expect(card.getByText('Рекомендация диспетчеру')).toBeVisible()
@@ -34,9 +34,9 @@ test('S6: демо по сценарию показа (docs/DEMO_SCRIPT.md)', as
   // Второе предупреждение приходит через 45 модельных секунд (≈ 9 с при ×5).
   await page.getByRole('button', { name: 'Продолжить' }).click()
   const feed = page.getByRole('complementary', { name: 'Лента предупреждений' })
-  const second = feed.getByRole('button', { name: /^Событие demo-122658-event/ })
+  const second = feed.getByRole('button', { name: /^Борт 122658,/ })
   await expect(second).toBeVisible({ timeout: 12_000 })
-  await expect(summary).toContainText(/2\s*алертов/)
+  await expect(summary).toContainText(/2\s*предупреждения/)
   await page.getByRole('button', { name: 'Пауза' }).click()
   await second.click()
   await expect(card.getByRole('heading', { name: 'Борт 122658' })).toBeVisible()
@@ -54,7 +54,7 @@ test('S6: демо по сценарию показа (docs/DEMO_SCRIPT.md)', as
   await scenario.selectOption('normal')
   await expect(connectionPill(page, 'REPLAY')).toBeVisible()
   await restartPaused(page)
-  await expect(summary).toContainText(/1\s*алертов/)
+  await expect(summary).toContainText(/1\s*предупреждение(?!й)/)
 })
 
 test('демо → живой поток без backend → демо', async ({ page }) => {

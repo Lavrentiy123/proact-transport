@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { BusFront, Check, Clock3, Gauge, Info, MapPin, Route, Send, ShieldAlert, X } from 'lucide-react'
 import type { ActionResponse, Alert, Forecast, VehicleState } from '../types/contracts'
-import { describeDelay, formatCountdown, formatDelay, formatPercent, stopLabel } from '../utils/format'
-import { advanceContractTime, contractTimeMs, displayClock, secondsUntil } from '../utils/time'
+import { describeDelay, formatCountdown, formatDelay, formatPercent, planCountdown, stopLabel } from '../utils/format'
+import { advanceContractTime, contractTimeMs, displayClock } from '../utils/time'
 import WhatIfPanel from './WhatIfPanel'
 import { Banner, Button, EmptyState, KeyValue, Panel, PanelHeader, RiskBadge } from '../ui'
 
@@ -45,7 +45,7 @@ function dwell(value: number | null | undefined): string {
 export default function IncidentCard({ source, connected, vehicle, alert, forecast, simTime, positionAgeS, forecastWallAgeS, segmentFrom, outcome, onAction, hasSchedule }: Props) {
   const [busy, setBusy] = useState<'apply' | 'dismiss' | null>(null)
   if (!vehicle && !alert) {
-    return <Panel as="aside" className="incident-panel" aria-label="Карточка выбранного борта"><PanelHeader eyebrow="Детали события" title="Карточка борта" /><EmptyState icon={<BusFront size={30} />} title="Выберите борт" hint="Нажмите на маркер или предупреждение." /></Panel>
+    return <Panel as="aside" className="incident-panel" aria-label="Карточка выбранного борта"><PanelHeader title="Карточка борта" className="incident-header" /><EmptyState icon={<BusFront size={30} />} title="Выберите борт" hint="Нажмите на маркер или предупреждение." /></Panel>
   }
 
   async function act(action: 'apply' | 'dismiss') {
@@ -62,47 +62,20 @@ export default function IncidentCard({ source, connected, vehicle, alert, foreca
   const forecastAgeS = forecast ? Math.max(0, (contractTimeMs(simTime) - contractTimeMs(forecast.issued_at)) / 1000 + forecastWallAgeS) : null
   const forecastStale = forecastAgeS != null && forecastAgeS > 120
   const positionLine = vehicle ? `Позиция: ${Math.round(positionAgeS ?? vehicle.last_seen_s)} с назад · скорость на момент снимка ${Math.round(vehicle.speed_kmh)} км/ч` : null
+  const frozenAt = !connected ? `не обновляется с ${displayClock(simTime)}` : null
+  const arrivalLine = forecast ? `План ${displayClock(forecast.target_time_plan).slice(0, 5)} · прибытие ≈ ${displayClock(estimatedArrival ?? undefined).slice(0, 5)} · ${planCountdown(planRemaining).replace(/^план /, '')}` : ''
   return (
     <Panel as="aside" className="incident-panel" aria-label="Карточка выбранного борта">
-      <PanelHeader eyebrow="Детали события" title={`Борт ${vehicle?.tr_id ?? alert?.tr_id}`} actions={<BusFront size={22} className="heading-icon" />}>
-        {alert && <span className="incident-event-title">{alert.title} · {displayClock(alert.created_at)}</span>}
-      </PanelHeader>
+      <PanelHeader title={`Борт ${vehicle?.tr_id ?? alert?.tr_id}`} className="incident-header" actions={<BusFront size={20} className="heading-icon" />} />
       {forecast ? (
         <>
           <RiskBadge variant="strip" risk={risk} className="incident-risk-band" value={formatDelay(forecast.delay_pred_s)} valueTitle={describeDelay(forecast.delay_pred_s)} />
+          {frozenAt && <span className="incident-frozen">{frozenAt}</span>}
           {qualityNote && <Banner tone="warning" inset live={false} className="quality-note" icon={<Info size={14} />}>{qualityNote}</Banner>}
           <div className="incident-section target-section">
-            <span className="ui-eyebrow">Участок и целевая остановка</span>
             {segmentFrom && <span className="segment-line"><Route size={14} /> {segmentFrom} → {targetName}</span>}
             <strong className="target-name"><MapPin size={17} />{targetName}</strong>
-            <div className="target-countdown"><Clock3 size={17} />{planRemaining != null && planRemaining >= 0 ? <>План через <strong>{formatCountdown(secondsUntil(forecast.target_time_plan, simTime))}</strong></> : <strong>Плановое время прошло</strong>}<span>{source === 'demo' ? 'от времени симуляции' : 'от времени потока'}</span></div>
-            <div className="target-countdown expected-arrival">Ожидаемое прибытие <strong>{displayClock(estimatedArrival ?? undefined).slice(0, 5)}</strong><span>план {displayClock(forecast.target_time_plan).slice(0, 5)} + прогноз</span></div>
-          </div>
-          <KeyValue className="forecast-box" stale={forecastStale} rows={[
-            { label: 'Прогноз отклонения', value: describeDelay(forecast.delay_pred_s) },
-            { label: 'Диапазон q10–q90', value: `${formatDelay(forecast.delay_q10_s)} – ${formatDelay(forecast.delay_q90_s)}` },
-            { label: 'Вероятность опоздания > 2 мин', value: formatPercent(forecast.p_late) },
-            { label: 'Горизонт прогноза', value: Number.isFinite(forecast.lead_s) ? `${Math.round(forecast.lead_s / 60)} мин до плана` : '—' },
-            { label: 'Качество при расчёте', value: qualityNames[forecast.quality] },
-            { label: 'Обновлён', value: displayClock(forecast.issued_at) },
-            { label: 'Возраст прогноза', value: forecastAgeS != null && Number.isFinite(forecastAgeS) ? `${Math.floor(forecastAgeS / 60)} мин ${Math.round(forecastAgeS % 60)} с` : '—' },
-          ]} />
-          {forecastStale && <Banner tone="warning" inset className="forecast-stale-warning">Прогноз выдан более 2 минут назад. Проверьте актуальность перед действием.</Banner>}
-          {alert?.recommendation?.target_speed_kmh != null && alert.recommendation.target_speed_kmh > 0 && (
-            <WhatIfPanel key={alert.alert_id} forecast={alert.forecast} speedToPlanKmh={alert.recommendation.target_speed_kmh} />
-          )}
-          {vehicle && (
-            <KeyValue className="forecast-box derived-box" aria-label="Текущее состояние борта" rows={[
-              { label: 'Текущее отклонение (последняя остановка)', value: formatDelay(vehicle.cur_dev_s) },
-              { label: 'Средняя скорость на перегоне', value: kmh(vehicle.seg_speed_kmh) },
-              { label: 'Текущая стоянка', value: dwell(vehicle.dwell_s) },
-            ]} />
-          )}
-          <div className="incident-section cause-section">
-            <span className="ui-eyebrow">Причина прогноза</span>
-            <strong>{forecast.cause.text}</strong>
-            <p>{forecast.cause.evidence}</p>
-            <span className="confidence-line"><Info size={14} /> Уверенность {formatPercent(forecast.cause.confidence)}</span>
+            <div className="target-countdown" title={source === 'demo' ? 'Время симуляции' : 'Время потока'}><Clock3 size={15} /><span className="target-arrival">{arrivalLine}</span></div>
           </div>
           {alert && (
             <Panel as="div" variant="inset" className="recommendation-box">
@@ -110,14 +83,15 @@ export default function IncidentCard({ source, connected, vehicle, alert, foreca
               <p>{alert.recommendation?.text ?? 'Прогноз опоздания без готовой меры: можно запросить у водителя обстановку на линии.'}</p>
               {onAction && (
                 <div className="action-buttons">
-                  <Button variant="primary" icon={<Send size={14} />} loading={busy === 'apply'} disabled={busy != null} onClick={() => act('apply')}>
+                  <Button variant="primary" icon={<Send size={14} />} loading={busy === 'apply'} disabled={busy != null || !connected} onClick={() => act('apply')}>
                     {busy === 'apply' ? 'Отправка…' : alert.recommendation ? 'Отправить водителю' : 'Запросить обстановку'}
                   </Button>
-                  <Button icon={<X size={14} />} loading={busy === 'dismiss'} disabled={busy != null} onClick={() => act('dismiss')}>
+                  <Button variant="secondary" icon={<X size={14} />} loading={busy === 'dismiss'} disabled={busy != null || !connected} onClick={() => act('dismiss')}>
                     {busy === 'dismiss' ? 'Отклоняю…' : 'Отклонить'}
                   </Button>
                 </div>
               )}
+              {onAction && !connected && <span className="action-offline">Нет связи — отправка недоступна</span>}
               <small>{source === 'demo' ? 'Демонстрационный сценарий: ответ водителя эмулируется' : 'Канал NDTP «диспетчер ↔ водитель»; ответ водителя в демо эмулируется'}</small>
             </Panel>
           )}
@@ -132,6 +106,36 @@ export default function IncidentCard({ source, connected, vehicle, alert, foreca
             <Banner tone="error" inset className="action-outcome is-error" icon={<X size={14} />}>Не удалось выполнить действие: {outcome.error}</Banner>
           )}
           {!alert && !outcome && <div className="incident-note">Предупреждения по борту нет: оно поднимается при красном риске (прогноз опоздания от 5 мин или вероятность опоздания больше 2 мин от 80 %).</div>}
+          <div className="incident-section cause-section">
+            <span className="ui-eyebrow">Причина прогноза</span>
+            <strong>{forecast.cause.text}</strong>
+            <p>{forecast.cause.evidence}</p>
+            <span className="confidence-line"><Info size={14} /> Уверенность {formatPercent(forecast.cause.confidence)}</span>
+          </div>
+          {frozenAt && <span className="incident-frozen forecast-frozen">Прогноз {frozenAt}</span>}
+          <KeyValue className="forecast-box" stale={forecastStale || !connected} rows={[
+            { label: 'Прогноз отклонения', value: describeDelay(forecast.delay_pred_s) },
+            { label: 'Вероятный диапазон', value: `${formatDelay(forecast.delay_q10_s)} – ${formatDelay(forecast.delay_q90_s)}` },
+            { label: 'Вероятность опоздания > 2 мин', value: formatPercent(forecast.p_late) },
+            { label: 'Горизонт прогноза', value: Number.isFinite(forecast.lead_s) ? `${Math.round(forecast.lead_s / 60)} мин до плана` : '—' },
+            { label: 'Качество при расчёте', value: qualityNames[forecast.quality] },
+            { label: 'Обновлён', value: displayClock(forecast.issued_at) },
+            { label: 'Возраст прогноза', value: forecastAgeS != null && Number.isFinite(forecastAgeS) ? `${Math.floor(forecastAgeS / 60)} мин ${Math.round(forecastAgeS % 60)} с` : '—' },
+            ...(alert ? [{ label: 'Предупреждение создано', value: displayClock(alert.created_at) }] : []),
+          ]} />
+          {forecastStale && <Banner tone="warning" inset className="forecast-stale-warning">Прогноз выдан более 2 минут назад. Проверьте актуальность перед действием.</Banner>}
+          {vehicle && (
+            <KeyValue className="forecast-box derived-box" aria-label="Текущее состояние борта" rows={[
+              { label: 'Текущее отклонение (последняя остановка)', value: formatDelay(vehicle.cur_dev_s) },
+              { label: 'Средняя скорость на перегоне', value: kmh(vehicle.seg_speed_kmh) },
+              { label: 'Текущая стоянка', value: dwell(vehicle.dwell_s) },
+            ]} />
+          )}
+          {alert?.recommendation?.target_speed_kmh != null && alert.recommendation.target_speed_kmh > 0 && (
+            <details className="whatif-details"><summary>Что если: изменить скорость</summary>
+              <WhatIfPanel key={alert.alert_id} forecast={alert.forecast} speedToPlanKmh={alert.recommendation.target_speed_kmh} />
+            </details>
+          )}
           <details className="model-details"><summary>Сведения о расчёте</summary><span>Версия модели: {forecast.model_version}</span></details>
           {positionLine && <div className="position-line">{positionLine}</div>}
           {vehicle?.stale && <Banner tone="warning" inset live={false} className="stale-warning" icon={<ShieldAlert size={16} />}>{connected ? `Последний пакет получен ${Math.round(positionAgeS ?? vehicle.last_seen_s)} с назад.` : 'Новый снимок пока не получен.'} Положение может быть неточным.</Banner>}
