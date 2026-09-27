@@ -36,11 +36,11 @@ if (alertCount !== base.alerts.length) {
 const port = Number(process.env.STUB_PORT ?? 8000)
 if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('STUB_PORT must be a valid TCP port')
 const stubCase = process.env.STUB_CASE ?? 'normal'
-const allowedCases = new Set(['normal', 'bad-frame', 'track-race', 'track-500', 'track-timeout', 'drop-selected', 'partial-alert', 'partial-status', 'partial-both', 'slow-first', 'long-track'])
+const allowedCases = new Set(['normal', 'bad-frame', 'track-race', 'track-500', 'track-timeout', 'drop-selected', 'partial-alert', 'partial-status', 'partial-both', 'slow-first', 'long-track', 'status-skew', 'rewind'])
 if (!allowedCases.has(stubCase)) throw new Error(`STUB_CASE must be one of: ${[...allowedCases].join(', ')}`)
 const targetTrId = Number(process.env.STUB_TR_ID ?? 131672)
 if (!Number.isSafeInteger(targetTrId)) throw new Error('STUB_TR_ID must be an integer')
-const triggerTick = Number(process.env.STUB_TRIGGER_TICK ?? (stubCase === 'drop-selected' || stubCase === 'slow-first' ? 5 : 3))
+const triggerTick = Number(process.env.STUB_TRIGGER_TICK ?? (stubCase === 'drop-selected' || stubCase === 'slow-first' || stubCase === 'rewind' ? 5 : 3))
 if (!Number.isSafeInteger(triggerTick) || triggerTick < 1) throw new Error('STUB_TRIGGER_TICK must be a positive integer')
 const delayMs = Number(process.env.STUB_DELAY_MS ?? (stubCase === 'track-timeout' ? 9000 : 3500))
 if (!Number.isSafeInteger(delayMs) || delayMs < 0 || delayMs > 60000) throw new Error('STUB_DELAY_MS must be 0..60000')
@@ -77,6 +77,20 @@ const wsServer = new WebSocketServer({ noServer: true })
 const clientTicks = new WeakMap()
 let tick = 0
 let latestSnapshot = base
+
+const REWIND_MS = 60 * 60_000
+
+/** Shifts every contract timestamp in a frame, as a replay rewind does on the backend. */
+function shiftTimes(json, ms) {
+  return json.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?/g, (value) => new Date(Date.parse(`${value}Z`) + ms).toISOString().slice(0, 19))
+}
+
+/** The real backend reads its running clock again for status, microseconds to milliseconds later. */
+function skewStatus(snapshot, tick) {
+  const frameMs = Date.parse(`${snapshot.sim_time}Z`) + 412
+  const iso = (ms, micro) => `${new Date(ms).toISOString().slice(0, 23)}${micro}`
+  return { ...snapshot, sim_time: iso(frameMs, '001'), status: { ...snapshot.status, sim_time: iso(frameMs + 1 + (tick % 50), '877') } }
+}
 
 function sendJson(response, code, data) {
   response.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' })
@@ -138,6 +152,14 @@ const timer = setInterval(() => {
         vehicles: snapshot.vehicles.filter((item) => item.tr_id !== targetTrId),
         alerts: snapshot.alerts.filter((item) => item.tr_id !== targetTrId),
       }))
+      continue
+    }
+    if (stubCase === 'status-skew') {
+      client.send(JSON.stringify(skewStatus(snapshot, tick)))
+      continue
+    }
+    if (stubCase === 'rewind' && clientTick >= triggerTick) {
+      client.send(shiftTimes(JSON.stringify(snapshot), -REWIND_MS))
       continue
     }
     client.send(JSON.stringify(snapshot))

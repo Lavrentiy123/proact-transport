@@ -1,5 +1,5 @@
 # ML-T1: Убрать утечку, валидатор сабмита, сабмит №1 — ✅
-**Время:** 25 мин   **Коммит:** см. ML-T2.md / `git log --grep "ML-T1"`   **Пуш:** см. ML-T2.md
+**Время:** 25 мин   **Коммит:** 1cbc225   **Пуш:** да
 ## Сделано
 - Из `src/train.py` удалён блок «Local ground truth check for validate» (факты `test/schedule.csv` по целевым остановкам validate).
 - Убраны `eval_set=(X_test, y_test)` и `early_stopping_rounds=50`; параметры фиксированы: `iterations=700, learning_rate=0.03, depth=6, loss_function='MAE', random_seed=42, verbose=0, allow_writing_files=False`. Test — только для печати MAE после обучения.

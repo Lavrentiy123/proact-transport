@@ -6,7 +6,9 @@ import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
 import type { FeatureCollection, LineString, Point } from 'geojson'
 import type { Risk, TrackResponse, VehicleState } from '../types/contracts'
+import { formatDelay, stopLabel } from '../utils/format'
 import { validCoordinate } from '../utils/geo'
+import { contractTimeMs } from '../utils/time'
 
 interface Props {
   source: 'demo' | 'live'
@@ -18,10 +20,17 @@ interface Props {
   track: TrackResponse | null
   loading: boolean
   onSelect: (trId: number) => void
+  /** Маршруты всех бортов (живой режим): сеть на карте с цветом риска борта. */
+  networkTracks?: Record<number, TrackResponse>
+  simTime?: string
 }
 
 const emptyPoints: FeatureCollection<Point> = { type: 'FeatureCollection', features: [] }
 const emptyLines: FeatureCollection<LineString> = { type: 'FeatureCollection', features: [] }
+const riskColor: maplibregl.ExpressionSpecification = ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#8ca4b1']
+// Backend returns the whole-day schedule; only the stretch around "now" is drawn.
+const NETWORK_BACK_MS = 15 * 60_000
+const NETWORK_AHEAD_MS = 45 * 60_000
 const basemapStyleUrl = import.meta.env.VITE_MAP_STYLE_URL?.trim() || 'https://tiles.openfreemap.org/styles/dark'
 const installedMapHandlers = new WeakSet<MapLibreMap>()
 
@@ -40,11 +49,20 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   const firstStyleFont = map.getStyle().layers.find((layer) => layer.type === 'symbol' && Array.isArray(layer.layout?.['text-font']))
   const styleFont = firstStyleFont?.type === 'symbol' ? firstStyleFont.layout?.['text-font'] : undefined
   const clusterFont = Array.isArray(styleFont) && styleFont.every((item) => typeof item === 'string') ? styleFont : ['Noto Sans Regular']
+  map.addSource('network', { type: 'geojson', data: emptyLines })
+  map.addLayer({
+    id: 'network-line', type: 'line', source: 'network',
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': riskColor, 'line-width': 2.5, 'line-opacity': 0.55 },
+  })
   map.addSource('planned-route', { type: 'geojson', data: emptyLines })
   map.addLayer({
     id: 'planned-route-line', type: 'line', source: 'planned-route',
     layout: { 'line-join': 'round', 'line-cap': 'round' },
-    paint: { 'line-color': '#7ec7da', 'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [2, 1.5] },
+    paint: {
+      'line-color': ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#7ec7da'],
+      'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [2, 1.5],
+    },
   })
   map.addSource('vehicle-trail', { type: 'geojson', data: emptyLines })
   map.addLayer({
@@ -55,7 +73,12 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   map.addSource('planned-stops', { type: 'geojson', data: emptyPoints })
   map.addLayer({
     id: 'planned-stops-circle', type: 'circle', source: 'planned-stops',
-    paint: { 'circle-color': '#142433', 'circle-radius': 6, 'circle-stroke-color': '#b5e2e8', 'circle-stroke-width': 2 },
+    paint: {
+      'circle-color': ['case', ['get', 'target'], '#ff897f', '#142433'],
+      'circle-radius': ['case', ['get', 'target'], 8, 6],
+      'circle-stroke-color': ['case', ['get', 'target'], '#ffffff', '#b5e2e8'],
+      'circle-stroke-width': 2,
+    },
   })
   map.addSource('vehicles', {
     type: 'geojson', data: emptyPoints, cluster: true, clusterMaxZoom: 12, clusterRadius: 44,
@@ -79,7 +102,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   map.addLayer({
     id: 'vehicles-glow', type: 'circle', source: 'vehicles', filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#8ca4b1'],
+      'circle-color': riskColor,
       'circle-radius': ['case', ['get', 'selected'], 19, 15],
       'circle-opacity': 0.18,
     },
@@ -87,7 +110,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   map.addLayer({
     id: 'vehicles-circle', type: 'circle', source: 'vehicles', filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#8ca4b1'],
+      'circle-color': riskColor,
       'circle-radius': ['case', ['get', 'selected'], 10, 8],
       'circle-stroke-color': '#f6fbff',
       'circle-stroke-width': ['case', ['get', 'selected'], 3, 2],
@@ -97,7 +120,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   map.addSource('selected-vehicle', { type: 'geojson', data: emptyPoints })
   map.addLayer({
     id: 'selected-vehicle-circle', type: 'circle', source: 'selected-vehicle',
-    paint: { 'circle-color': ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#8ca4b1'],
+    paint: { 'circle-color': riskColor,
       'circle-radius': 11, 'circle-opacity': ['case', ['get', 'stale'], 0.55, 1],
       'circle-stroke-color': ['case', ['get', 'stale'], '#f6c987', '#f6fbff'],
       'circle-stroke-width': ['case', ['get', 'stale'], 4, 3] },
@@ -115,6 +138,11 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   }
   const hideTooltip = () => { hoverPopup?.remove(); hoverPopup = null; hoverKey = '' }
   const riskText = (risk: unknown) => risk === 'red' ? 'критично' : risk === 'yellow' ? 'внимание' : risk === 'green' ? 'в графике' : 'без прогноза'
+  const vehicleTooltip = (properties: Record<string, unknown> | null | undefined) => {
+    const delay = typeof properties?.delay === 'number' ? ` · прогноз ${formatDelay(properties.delay)}` : ''
+    const target = typeof properties?.target === 'string' && properties.target ? ` к ${properties.target}` : ''
+    return `Борт ${properties?.tr_id} · ${riskText(properties?.risk)}${delay}${target}`
+  }
   const vehicleWord = (count: number) => count % 10 === 1 && count % 100 !== 11 ? 'борт' : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? 'борта' : 'бортов'
   map.on('click', 'vehicle-clusters', async (event) => {
     const feature = event.features?.[0]
@@ -140,14 +168,14 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   map.on('mousemove', 'vehicles-circle', (event) => {
     const feature = event.features?.[0]
     if (feature?.geometry.type !== 'Point') return
-    showTooltip(feature.geometry.coordinates as [number, number], `Борт ${feature.properties?.tr_id} · ${riskText(feature.properties?.risk)}`)
+    showTooltip(feature.geometry.coordinates as [number, number], vehicleTooltip(feature.properties))
   })
   map.on('mouseleave', 'vehicles-circle', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
   map.on('mouseenter', 'selected-vehicle-circle', () => { map.getCanvas().style.cursor = 'pointer' })
   map.on('mousemove', 'selected-vehicle-circle', (event) => {
     const feature = event.features?.[0]
     if (feature?.geometry.type !== 'Point') return
-    showTooltip(feature.geometry.coordinates as [number, number], `Борт ${feature.properties?.tr_id} · ${riskText(feature.properties?.risk)}`)
+    showTooltip(feature.geometry.coordinates as [number, number], vehicleTooltip(feature.properties))
   })
   map.on('mouseleave', 'selected-vehicle-circle', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
   map.on('mouseenter', 'vehicle-clusters', () => { map.getCanvas().style.cursor = 'pointer' })
@@ -163,7 +191,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   map.on('remove', hideTooltip)
 }
 
-export default function VehicleMap({ source, vehicles, selectedTrId, selectedRisk, focusSelectionToken, resetViewToken, track, loading, onSelect }: Props) {
+export default function VehicleMap({ source, vehicles, selectedTrId, selectedRisk, focusSelectionToken, resetViewToken, track, loading, onSelect, networkTracks, simTime }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const onSelectRef = useRef(onSelect)
@@ -329,30 +357,57 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
           risk: item.forecast?.risk ?? 'unknown',
           stale: item.stale,
           selected: item.tr_id === selectedTrId,
+          delay: item.forecast?.delay_pred_s ?? null,
+          target: item.forecast ? stopLabel(item.forecast.target_stop_name, item.forecast.target_stop_id) : '',
         },
       })),
     }
     ;(map.getSource('vehicles') as GeoJSONSource).setData(vehicleData)
     const selectedVehicle = validVehicles.find((item) => item.tr_id === selectedTrId)
+    const selectedRiskValue = selectedRisk ?? selectedVehicle?.forecast?.risk ?? 'unknown'
     ;(map.getSource('selected-vehicle') as GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: selectedVehicle ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: [selectedVehicle.lon, selectedVehicle.lat] },
-        properties: { tr_id: selectedVehicle.tr_id, risk: selectedRisk ?? selectedVehicle.forecast?.risk ?? 'unknown', stale: selectedVehicle.stale } }] : [],
+        properties: { tr_id: selectedVehicle.tr_id, risk: selectedRiskValue, stale: selectedVehicle.stale,
+          delay: selectedVehicle.forecast?.delay_pred_s ?? null,
+          target: selectedVehicle.forecast ? stopLabel(selectedVehicle.forecast.target_stop_name, selectedVehicle.forecast.target_stop_id) : '' } }] : [],
     })
 
+    const now = simTime ? contractTimeMs(simTime) : Number.NaN
+    const inWindow = (time: string) => !Number.isFinite(now) ||
+      (contractTimeMs(time) >= now - NETWORK_BACK_MS && contractTimeMs(time) <= now + NETWORK_AHEAD_MS)
+    const riskOf = new Map(vehicles.map((item) => [item.tr_id, item.forecast?.risk ?? 'unknown']))
+    const networkData: FeatureCollection<LineString> = {
+      type: 'FeatureCollection',
+      features: Object.values(networkTracks ?? {}).flatMap((item) => {
+        if (item.tr_id === selectedTrId) return []
+        const path = item.stops.filter((stop) => validCoordinate(stop.lon, stop.lat) && inWindow(stop.time_plan))
+          .sort((a, b) => a.seq - b.seq)
+        return path.length >= 2 ? [{
+          type: 'Feature' as const, properties: { tr_id: item.tr_id, risk: riskOf.get(item.tr_id) ?? 'unknown' },
+          geometry: { type: 'LineString' as const, coordinates: path.map((stop) => [stop.lon, stop.lat]) },
+        }] : []
+      }),
+    }
+    map.getSource<GeoJSONSource>('network')?.setData(networkData)
+
     const selectedTrack = track?.tr_id === selectedTrId ? track : null
-    const stops = selectedTrack?.stops.filter((item) => validCoordinate(item.lon, item.lat)).sort((a, b) => a.seq - b.seq) ?? []
+    const targetStopId = selectedVehicle?.forecast?.target_stop_id
+    const routeStops = selectedTrack?.stops.filter((item) => validCoordinate(item.lon, item.lat)).sort((a, b) => a.seq - b.seq) ?? []
+    // The live track is the whole-day schedule; draw the stretch around "now" and the target stop.
+    const windowStops = source === 'live' ? routeStops.filter((item) => inWindow(item.time_plan) || item.stop_id === targetStopId) : routeStops
+    const stops = windowStops.length >= 2 ? windowStops : routeStops
     const routeData: FeatureCollection<LineString> = {
       type: 'FeatureCollection',
       features: stops.length >= 2 ? [{
-        type: 'Feature', properties: {},
+        type: 'Feature', properties: { risk: selectedRiskValue },
         geometry: { type: 'LineString', coordinates: stops.map((item) => [item.lon, item.lat]) },
       }] : [],
     }
     const stopData: FeatureCollection<Point> = {
       type: 'FeatureCollection',
       features: stops.map((item) => ({
-        type: 'Feature', properties: { stop_id: item.stop_id },
+        type: 'Feature', properties: { stop_id: item.stop_id, target: item.stop_id === targetStopId },
         geometry: { type: 'Point', coordinates: [item.lon, item.lat] },
       })),
     }
@@ -370,7 +425,8 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
 
     const fitKey = viewMode === 'overview'
       ? `overview:${validVehicles.map((item) => item.tr_id).sort((a, b) => a - b).join(',')}`
-      : `${selectedTrId ?? 'all'}:${stops.length > 0 ? `route:${stops.map((item) => `${item.lon},${item.lat}`).join(';')}` : selectedVehicle ? 'point' : 'vehicles'}`
+      // Keyed by the full route, so the live window sliding with time does not refit the view.
+      : `${selectedTrId ?? 'all'}:${stops.length > 0 ? `route:${routeStops.map((item) => `${item.lon},${item.lat}`).join(';')}` : selectedVehicle ? 'point' : 'vehicles'}`
     if (fitKey !== lastFittedRef.current) {
       lastFittedRef.current = fitKey
       if (userMovedRef.current) return
@@ -399,7 +455,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
         map.easeTo({ center: coordinates[0] as [number, number], zoom: 12.5, duration })
       }
     }
-  }, [vehicles, selectedTrId, selectedRisk, track, styleRevision, mapSizeRevision, viewMode, focusSelectionToken])
+  }, [vehicles, selectedTrId, selectedRisk, track, styleRevision, mapSizeRevision, viewMode, focusSelectionToken, networkTracks, simTime, source])
 
   return (
     <section id="vehicle-map" className="map-panel" aria-label="Карта движения бортов">
@@ -431,6 +487,8 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
         <span><i className="legend-dot legend-red" />Критично</span>
         <span><i className="legend-dot legend-yellow" />Внимание</span>
         <span><i className="legend-dot legend-green" />В графике</span>
+        <span><i className="legend-dot legend-grey" />Нет прогноза</span>
+        <span><i className="legend-dot legend-target" />Целевая остановка</span>
         <span className="map-cluster-legend">Группа: цвет по высшему риску</span>
       </div>
       <div className="map-route-hint"><Navigation2 size={15} /> Нажмите на борт, чтобы увидеть маршрут</div>

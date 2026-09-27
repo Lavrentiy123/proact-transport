@@ -12,6 +12,23 @@ const left = 70
 const right = 965
 const top = 18
 const bottom = 140
+const WINDOW_BACK_MS = 30 * 60_000
+const WINDOW_AHEAD_MS = 40 * 60_000
+
+/** В живом режиме backend отдаёт расписание борта на весь день — показываем только окно вокруг «сейчас»
+ * (плюс целевую остановку), иначе на диаграмме сотни подписей и её невозможно прочитать. */
+function windowStops(stops: TrackResponse['stops'], simTime: string, targetStopId: number | undefined): TrackResponse['stops'] {
+  const now = contractTimeMs(simTime)
+  if (!Number.isFinite(now)) return stops
+  const inside = stops.filter((stop) => {
+    const t = contractTimeMs(stop.time_plan)
+    return (t >= now - WINDOW_BACK_MS && t <= now + WINDOW_AHEAD_MS) || stop.stop_id === targetStopId
+  })
+  if (inside.length >= 2) return inside
+  const nearest = [...stops].sort((a, b) =>
+    Math.abs(contractTimeMs(a.time_plan) - now) - Math.abs(contractTimeMs(b.time_plan) - now)).slice(0, 10)
+  return nearest.sort((a, b) => a.seq - b.seq)
+}
 
 function closestDistance(lat: number, lon: number, stops: TrackResponse['stops'], distances: number[]): number {
   let best = Number.POSITIVE_INFINITY
@@ -34,7 +51,11 @@ export default function MareyChart({ source, track, forecast, simTime, loading, 
     return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>{loading ? 'Загрузка маршрута…' : routeError ? 'Маршрут недоступен; положение и прогноз сохранены' : 'Выберите борт с маршрутом'}</span></div></section>
   }
 
-  const stops = [...track.stops].sort((a, b) => a.seq - b.seq)
+  const sorted = [...track.stops].sort((a, b) => a.seq - b.seq)
+  const stops = source === 'live' ? windowStops(sorted, simTime, forecast?.target_stop_id) : sorted
+  if (stops.length < 2) {
+    return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>Нет плановых остановок рядом с текущим временем</span></div></section>
+  }
   const planTimes = stops.map((stop) => contractTimeMs(stop.time_plan))
   if (planTimes.some((time, index) => !Number.isFinite(time) || (index > 0 && time <= planTimes[index - 1]))) {
     return <section className="marey-panel"><div className="marey-heading"><BarChart3 size={17} /><strong>Диаграмма движения</strong><span>Некорректный порядок плановых остановок</span></div></section>
@@ -53,7 +74,9 @@ export default function MareyChart({ source, track, forecast, simTime, loading, 
     planTargetTime + forecast.delay_q10_s * 1000,
     planTargetTime + forecast.delay_q90_s * 1000,
   ] : []
-  const trail = track.trail.filter(([time]) => contractTimeMs(time) <= contractTimeMs(simTime))
+  // Points before the first stop of the live window would all project onto its start.
+  const windowStart = source === 'live' ? planTimes[0] - 60_000 : Number.NEGATIVE_INFINITY
+  const trail = track.trail.filter(([time]) => contractTimeMs(time) <= contractTimeMs(simTime) && contractTimeMs(time) >= windowStart)
   const orderedTrail = trail.every(([time], index) => index === 0 || contractTimeMs(time) >= contractTimeMs(trail[index - 1][0]))
   const observedTrail = orderedTrail ? trail : []
   const visibleTimes = [...planTimes, ...observedTrail.map(([time]) => contractTimeMs(time)), ...forecastTimes, contractTimeMs(simTime)]
@@ -84,7 +107,7 @@ export default function MareyChart({ source, track, forecast, simTime, loading, 
         {forecast && targetIndex >= 0 && Number.isFinite(forecastX) && <g><line x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} stroke="#fa8c85" strokeWidth="10" strokeOpacity=".3" strokeLinecap="round" /><line x1={q10X} x2={q90X} y1={y(targetDistance)} y2={y(targetDistance)} stroke="#ff9990" strokeWidth="2" /><circle cx={forecastX} cy={y(targetDistance)} r="6" fill="#ff897f" stroke="#fff" strokeWidth="2" /><text x={Math.min(forecastX + 12, right - 150)} y={y(targetDistance) - 12} fill="#ffc3ae" fontSize="11">{describeDelay(forecast.delay_pred_s)}</text></g>}
         <line x1={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} x2={Math.max(left, Math.min(right, x(contractTimeMs(simTime))))} y1={top} y2={bottom} stroke="#f3d693" strokeOpacity=".5" />
       </svg></div>
-      <div className="marey-footnote">{source === 'demo' ? 'Демонстрационный маршрут.' : 'Маршрут из выбранного потока.'} {stops[0].name} → {stops.at(-1)!.name}. {orderedTrail ? 'Наблюдения до текущего времени проецируются на маршрут.' : 'Наблюдения скрыты: неверный порядок времени.'} {forecast && targetIndex < 0 ? 'Целевая остановка прогноза отсутствует в маршруте.' : ''}</div>
+      <div className="marey-footnote">{source === 'demo' ? 'Демонстрационный маршрут.' : 'Окно −30…+40 мин вокруг времени потока; маршрут и трек обновляются каждые 15 с.'} {stops[0].name} → {stops.at(-1)!.name}. {orderedTrail ? 'Наблюдения до текущего времени проецируются на маршрут.' : 'Наблюдения скрыты: неверный порядок времени.'} {forecast && targetIndex < 0 ? 'Целевая остановка прогноза отсутствует в маршруте.' : ''}</div>
       <p className="sr-only">План от {displayClock(stops[0].time_plan)} до {displayClock(stops.at(-1)!.time_plan)}. Последнее наблюдение {observedTrail.length > 0 ? displayClock(observedTrail.at(-1)![0]) : 'отсутствует'}. {forecastArrival && targetIndex >= 0 ? `${describeDelay(forecast!.delay_pred_s)} к остановке ${forecast!.target_stop_name}, прогноз прибытия ${displayClock(forecastArrival)}.` : 'Прогноз на остановке маршрута отсутствует.'}</p>
     </section>
   )

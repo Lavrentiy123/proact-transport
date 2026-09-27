@@ -1,0 +1,11 @@
+# Runtime ml-core (без torch: PyTorch-член работает через onnxruntime).
+# catboost ставится отдельно без зависимостей (requirements-nodeps.txt): для инференса ему нужны
+# только numpy/pandas/scipy/six — plotly, matplotlib и graphviz (~150 МБ) не нужны.
+numpy==2.5.3
+pandas==2.3.3
+scipy==1.18.1
+six==1.17.0
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+pydantic==2.13.5
+onnxruntime==1.30.0

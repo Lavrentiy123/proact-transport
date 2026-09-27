@@ -1,0 +1,1189 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "ПроАкт.Транспорт — backend",
+  "description": "Приём телеметрии NDTP, состояние бортов, прогноз задержки за 10–15 минут, алерты диспетчеру. Модели ответов — contracts/schemas.py.",
+  "version": "1.0"
+ },
+ "paths": {
+  "/health": {
+   "get": {
+    "tags": [
+     "service"
+    ],
+    "summary": "Процесс жив",
+    "description": "Всегда 200, пока процесс отвечает.",
+    "operationId": "health_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Health Health Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/ready": {
+   "get": {
+    "tags": [
+     "service"
+    ],
+    "summary": "Готов принимать поток",
+    "description": "200 — расписание загружено и NDTP-сервер слушает порт; иначе 503 с причиной.",
+    "operationId": "ready_ready_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/system/status": {
+   "get": {
+    "tags": [
+     "system"
+    ],
+    "summary": "Режим LIVE/DEGRADED, время симуляции, сессии NDTP, состояние ml-core",
+    "description": "``SystemStatus`` контракта плюс необязательные счётчики приёма NDTP.",
+    "operationId": "system_status_api_v1_system_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemStatusEx"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/vehicles": {
+   "get": {
+    "tags": [
+     "vehicles"
+    ],
+    "summary": "Все борта: позиция, производные признаки, прогноз",
+    "operationId": "vehicles_api_v1_vehicles_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/VehicleState"
+         },
+         "type": "array",
+         "title": "Response Vehicles Api V1 Vehicles Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/alerts": {
+   "get": {
+    "tags": [
+     "alerts"
+    ],
+    "summary": "Алерты, сортировка по priority (больше — выше)",
+    "description": "``status``: ``active`` (по умолчанию), ``applied``, ``dismissed``, ``resolved`` или ``all``.",
+    "operationId": "alerts_api_v1_alerts_get",
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": "active",
+       "title": "Status"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Alert"
+         },
+         "title": "Response Alerts Api V1 Alerts Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/tracks/{tr_id}": {
+   "get": {
+    "tags": [
+     "vehicles"
+    ],
+    "summary": "Плановые остановки борта (план/факт/прогноз) и след GPS",
+    "operationId": "track_api_v1_tracks__tr_id__get",
+    "parameters": [
+     {
+      "name": "tr_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Tr Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TrackResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/actions": {
+   "post": {
+    "tags": [
+     "alerts"
+    ],
+    "summary": "Решение диспетчера по алерту (apply/dismiss) и сообщение водителю",
+    "operationId": "actions_api_v1_actions_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ActionRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ActionResponseEx"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/metrics/horizon": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Доля прогнозов с горизонтом 10–15 мин и онлайн-MAE против бейзлайна",
+    "operationId": "horizon_api_v1_metrics_horizon_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HorizonMetrics"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/replay/control": {
+   "post": {
+    "tags": [
+     "system"
+    ],
+    "summary": "Скорость и начальный момент воспроизведения исторического дня",
+    "operationId": "replay_control_api_v1_replay_control_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReplayControl"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemStatusEx"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/journal.csv": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Журнал прогнозов потока (CSV): горизонт, прогноз, факт из детектора прибытий",
+    "description": "Колонка ``sample_id`` = ``{tr_id}_{T}`` — как в ``validate/points.csv`` (сабмит из потока).",
+    "operationId": "journal_csv_api_v1_journal_csv_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/metrics": {
+   "get": {
+    "tags": [
+     "metrics"
+    ],
+    "summary": "Метрики Prometheus: пакеты NDTP, CRC, тик и инференс p50/p99, WS, отброшенное",
+    "operationId": "metrics_metrics_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "ActionRequest": {
+    "properties": {
+     "alert_id": {
+      "type": "string",
+      "title": "Alert Id"
+     },
+     "action": {
+      "type": "string",
+      "title": "Action"
+     },
+     "comment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comment"
+     }
+    },
+    "type": "object",
+    "required": [
+     "alert_id",
+     "action"
+    ],
+    "title": "ActionRequest"
+   },
+   "ActionResponseEx": {
+    "properties": {
+     "alert_id": {
+      "type": "string",
+      "title": "Alert Id"
+     },
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "driver_message": {
+      "type": "string",
+      "title": "Driver Message"
+     },
+     "driver_reply": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Driver Reply"
+     },
+     "driver_reply_emulated": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Driver Reply Emulated",
+      "description": "true — ответ водителя эмулирован правилом (демо)"
+     }
+    },
+    "type": "object",
+    "required": [
+     "alert_id",
+     "status",
+     "driver_message"
+    ],
+    "title": "ActionResponseEx",
+    "description": "``ActionResponse`` + необязательный флаг: ответ водителя в демо эмулирован (не пришёл по NDTP)."
+   },
+   "Alert": {
+    "properties": {
+     "alert_id": {
+      "type": "string",
+      "title": "Alert Id"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "tr_id": {
+      "type": "integer",
+      "title": "Tr Id"
+     },
+     "risk": {
+      "$ref": "#/components/schemas/Risk"
+     },
+     "priority": {
+      "type": "integer",
+      "title": "Priority",
+      "description": "чем больше, тем выше в ленте"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title",
+      "examples": [
+       "Борт 131672: +6 мин к ост. «Ул. Гарибальди» через 12 мин"
+      ]
+     },
+     "forecast": {
+      "$ref": "#/components/schemas/Forecast"
+     },
+     "recommendation": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Recommendation"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "status": {
+      "type": "string",
+      "title": "Status",
+      "default": "active"
+     }
+    },
+    "type": "object",
+    "required": [
+     "alert_id",
+     "created_at",
+     "tr_id",
+     "risk",
+     "priority",
+     "title",
+     "forecast"
+    ],
+    "title": "Alert"
+   },
+   "Cause": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code",
+      "examples": [
+       "congestion"
+      ]
+     },
+     "text": {
+      "type": "string",
+      "title": "Text",
+      "examples": [
+       "Затор на перегоне"
+      ]
+     },
+     "evidence": {
+      "type": "string",
+      "title": "Evidence",
+      "examples": [
+       "4 км/ч за 5 мин (норма 18), стоит 3:40 вне остановки"
+      ]
+     },
+     "confidence": {
+      "type": "number",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "text",
+     "evidence",
+     "confidence"
+    ],
+    "title": "Cause"
+   },
+   "Forecast": {
+    "properties": {
+     "target_stop_id": {
+      "type": "integer",
+      "title": "Target Stop Id"
+     },
+     "target_stop_name": {
+      "type": "string",
+      "title": "Target Stop Name"
+     },
+     "target_time_plan": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Target Time Plan"
+     },
+     "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Issued At"
+     },
+     "lead_s": {
+      "type": "integer",
+      "maximum": 900.0,
+      "minimum": 600.0,
+      "title": "Lead S",
+      "description": "target_time_plan - issued_at, горизонт 10–15 мин"
+     },
+     "delay_pred_s": {
+      "type": "number",
+      "title": "Delay Pred S"
+     },
+     "delay_q10_s": {
+      "type": "number",
+      "title": "Delay Q10 S"
+     },
+     "delay_q90_s": {
+      "type": "number",
+      "title": "Delay Q90 S"
+     },
+     "p_late": {
+      "type": "number",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "P Late",
+      "description": "P(задержка > 120 с)"
+     },
+     "risk": {
+      "$ref": "#/components/schemas/Risk"
+     },
+     "quality": {
+      "$ref": "#/components/schemas/Quality"
+     },
+     "cause": {
+      "$ref": "#/components/schemas/Cause"
+     },
+     "model_version": {
+      "type": "string",
+      "title": "Model Version"
+     }
+    },
+    "type": "object",
+    "required": [
+     "target_stop_id",
+     "target_stop_name",
+     "target_time_plan",
+     "issued_at",
+     "lead_s",
+     "delay_pred_s",
+     "delay_q10_s",
+     "delay_q90_s",
+     "p_late",
+     "risk",
+     "quality",
+     "cause",
+     "model_version"
+    ],
+    "title": "Forecast"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "HorizonMetrics": {
+    "properties": {
+     "forecasts_total": {
+      "type": "integer",
+      "title": "Forecasts Total"
+     },
+     "share_lead_in_window": {
+      "type": "number",
+      "title": "Share Lead In Window"
+     },
+     "resolved_total": {
+      "type": "integer",
+      "title": "Resolved Total"
+     },
+     "online_mae_model_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Online Mae Model S"
+     },
+     "online_mae_baseline_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Online Mae Baseline S"
+     }
+    },
+    "type": "object",
+    "required": [
+     "forecasts_total",
+     "share_lead_in_window",
+     "resolved_total",
+     "online_mae_model_s",
+     "online_mae_baseline_s"
+    ],
+    "title": "HorizonMetrics",
+    "description": "Доказательство для критерия 2: прогнозы строго за 10–15 минут."
+   },
+   "Mode": {
+    "type": "string",
+    "enum": [
+     "LIVE",
+     "DEGRADED",
+     "REPLAY"
+    ],
+    "title": "Mode"
+   },
+   "Quality": {
+    "type": "string",
+    "enum": [
+     "full",
+     "degraded",
+     "fallback"
+    ],
+    "title": "Quality"
+   },
+   "Recommendation": {
+    "properties": {
+     "action": {
+      "type": "string",
+      "title": "Action",
+      "examples": [
+       "speed_advice"
+      ]
+     },
+     "text": {
+      "type": "string",
+      "title": "Text",
+      "examples": [
+       "Держать среднюю скорость 24 км/ч до ост. «Ул. Гарибальди»"
+      ]
+     },
+     "target_speed_kmh": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target Speed Kmh"
+     },
+     "hold_s": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 120.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hold S"
+     },
+     "stop_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stop Id"
+     },
+     "expected_delay_after_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Delay After S"
+     }
+    },
+    "type": "object",
+    "required": [
+     "action",
+     "text"
+    ],
+    "title": "Recommendation"
+   },
+   "ReplayControl": {
+    "properties": {
+     "speed": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 60.0,
+        "exclusiveMinimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Speed",
+      "examples": [
+       5
+      ]
+     },
+     "start_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Start At",
+      "examples": [
+       "2026-01-06T07:00:00"
+      ]
+     }
+    },
+    "type": "object",
+    "title": "ReplayControl",
+    "description": "Тело ``POST /api/v1/replay/control`` (пример из ``contracts/README.md``)."
+   },
+   "Risk": {
+    "type": "string",
+    "enum": [
+     "green",
+     "yellow",
+     "red"
+    ],
+    "title": "Risk"
+   },
+   "StopOnTrack": {
+    "properties": {
+     "stop_id": {
+      "type": "integer",
+      "title": "Stop Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "lat": {
+      "type": "number",
+      "title": "Lat"
+     },
+     "lon": {
+      "type": "number",
+      "title": "Lon"
+     },
+     "seq": {
+      "type": "integer",
+      "title": "Seq"
+     },
+     "time_plan": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Time Plan"
+     },
+     "time_fact": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Time Fact"
+     },
+     "time_forecast": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Time Forecast"
+     }
+    },
+    "type": "object",
+    "required": [
+     "stop_id",
+     "name",
+     "lat",
+     "lon",
+     "seq",
+     "time_plan"
+    ],
+    "title": "StopOnTrack",
+    "description": "Плановая остановка борта: основа линии на карте и диаграммы Марея."
+   },
+   "SystemStatusEx": {
+    "properties": {
+     "mode": {
+      "$ref": "#/components/schemas/Mode"
+     },
+     "sim_time": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Sim Time"
+     },
+     "replay_speed": {
+      "type": "number",
+      "title": "Replay Speed"
+     },
+     "ndtp_sessions": {
+      "type": "integer",
+      "title": "Ndtp Sessions"
+     },
+     "last_packet_age_s": {
+      "type": "number",
+      "title": "Last Packet Age S"
+     },
+     "ml_core_ok": {
+      "type": "boolean",
+      "title": "Ml Core Ok"
+     },
+     "model_version": {
+      "type": "string",
+      "title": "Model Version"
+     },
+     "ndtp_connections_total": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ndtp Connections Total"
+     },
+     "ndtp_packets_total": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ndtp Packets Total",
+      "description": "realtime-пакетов принято"
+     },
+     "ndtp_nav_fixes_total": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ndtp Nav Fixes Total"
+     },
+     "ndtp_crc_errors_total": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ndtp Crc Errors Total"
+     },
+     "ndtp_garbage_bytes_total": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ndtp Garbage Bytes Total"
+     },
+     "unknown_units": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Unknown Units",
+      "description": "терминалов без расписания (только на карте)"
+     },
+     "ndtp_dropped_out_of_window": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ndtp Dropped Out Of Window",
+      "description": "пакетов вне окна «сейчас − 40 мин … + 30 с»"
+     },
+     "emulator": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Emulator",
+      "description": "управление эмулятором: disabled | unreachable | configured:…"
+     },
+     "predictor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Predictor",
+      "description": "чем считается прогноз: ml-core | fallback-rule | none"
+     }
+    },
+    "type": "object",
+    "required": [
+     "mode",
+     "sim_time",
+     "replay_speed",
+     "ndtp_sessions",
+     "last_packet_age_s",
+     "ml_core_ok",
+     "model_version"
+    ],
+    "title": "SystemStatusEx",
+    "description": "``SystemStatus`` из контракта + необязательные счётчики приёма NDTP (контракт не меняется:\nновые необязательные поля разрешены правилом ``contracts/README.md``, модель объявлена в backend)."
+   },
+   "TrackResponse": {
+    "properties": {
+     "tr_id": {
+      "type": "integer",
+      "title": "Tr Id"
+     },
+     "stops": {
+      "items": {
+       "$ref": "#/components/schemas/StopOnTrack"
+      },
+      "type": "array",
+      "title": "Stops"
+     },
+     "trail": {
+      "items": {
+       "prefixItems": [
+        {
+         "type": "string",
+         "format": "date-time"
+        },
+        {
+         "type": "number"
+        },
+        {
+         "type": "number"
+        }
+       ],
+       "type": "array",
+       "maxItems": 3,
+       "minItems": 3
+      },
+      "type": "array",
+      "title": "Trail",
+      "description": "последние точки GPS: (t, lat, lon)"
+     }
+    },
+    "type": "object",
+    "required": [
+     "tr_id",
+     "stops",
+     "trail"
+    ],
+    "title": "TrackResponse"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   },
+   "VehicleState": {
+    "properties": {
+     "tr_id": {
+      "type": "integer",
+      "title": "Tr Id"
+     },
+     "lat": {
+      "type": "number",
+      "title": "Lat"
+     },
+     "lon": {
+      "type": "number",
+      "title": "Lon"
+     },
+     "speed_kmh": {
+      "type": "number",
+      "title": "Speed Kmh"
+     },
+     "heading": {
+      "type": "number",
+      "title": "Heading"
+     },
+     "cur_dev_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cur Dev S",
+      "description": "отклонение на последней пройденной остановке (онлайн)"
+     },
+     "seg_speed_kmh": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seg Speed Kmh",
+      "description": "средняя скорость на текущем перегоне"
+     },
+     "dwell_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dwell S",
+      "description": "текущее время простоя"
+     },
+     "last_seen_s": {
+      "type": "number",
+      "title": "Last Seen S",
+      "description": "сколько секунд назад пришёл последний пакет"
+     },
+     "stale": {
+      "type": "boolean",
+      "title": "Stale"
+     },
+     "is_opening_or_closing_trip": {
+      "type": "boolean",
+      "title": "Is Opening Or Closing Trip",
+      "default": false
+     },
+     "forecast": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Forecast"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "tr_id",
+     "lat",
+     "lon",
+     "speed_kmh",
+     "heading",
+     "last_seen_s",
+     "stale"
+    ],
+    "title": "VehicleState"
+   }
+  }
+ }
+}

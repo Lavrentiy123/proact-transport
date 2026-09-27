@@ -12,6 +12,13 @@ export function selectedAlert(alerts: Alert[], trId: number | null, alertId: str
   return alerts.find((item) => item.alert_id === alertId && item.tr_id === trId && item.status === 'active')
 }
 
+/** A vehicle picked on the map or in the list opens its most urgent active alert. */
+export function topActiveAlert(alerts: Alert[], trId: number): Alert | undefined {
+  return alerts
+    .filter((item) => item.tr_id === trId && item.status === 'active')
+    .sort((a, b) => b.priority - a.priority || b.created_at.localeCompare(a.created_at) || a.alert_id.localeCompare(b.alert_id))[0]
+}
+
 export function forecastForSelection(vehicle: VehicleState | undefined, alert: Alert | undefined): Forecast | null {
   return alert?.forecast ?? vehicle?.forecast ?? null
 }

@@ -1,0 +1,5 @@
+# 2026-09-26T14:29:53Z HEAD 483dced
+$ docker compose up -d && python scripts/verify_stream.py first-alert --limit 300
+compose_up_d_returned_after_s: 13.0
+first_alert_after_s: 157.5
+alert: 122048-1767684405 created_at(sim)=2026-01-06T07:26:45 quality=full model=m_online-v1-7c6e169 sim_now=2026-01-06T07:26:45.265095

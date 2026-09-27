@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, BellRing, ChevronRight, Search, TriangleAlert } from 'lucide-react'
 import type { Alert, VehicleState } from '../types/contracts'
-import { formatCountdown, formatDelay } from '../utils/format'
+import { formatCountdown, formatDelay, stopLabel } from '../utils/format'
 import { secondsUntil } from '../utils/time'
 import { displayClock } from '../utils/time'
 
@@ -12,6 +12,7 @@ interface Props {
   selectedAlertId: string | null
   simTime: string
   loading: boolean
+  connected: boolean
   onSelect: (trId: number, alertId: string) => void
 }
 
@@ -28,7 +29,7 @@ function initialRiskFilter(): 'all' | 'red' | 'yellow' {
   } catch { return 'all' }
 }
 
-export default function AlertList({ alerts, vehicles, selectedTrId, selectedAlertId, simTime, loading, onSelect }: Props) {
+export default function AlertList({ alerts, vehicles, selectedTrId, selectedAlertId, simTime, loading, connected, onSelect }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [riskFilter, setRiskFilter] = useState<'all' | 'red' | 'yellow'>(initialRiskFilter)
   const [query, setQuery] = useState('')
@@ -96,7 +97,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
                   <span className="alert-vehicle">Борт {alert.tr_id}</span>
                   <ChevronRight size={16} className="alert-chevron" />
                 </div>
-                <div className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)} <small>к {alert.forecast.target_stop_name}</small></div>
+                <div className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)} <small>к {stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}</small></div>
                 <div className="alert-item-bottom"><span>{alert.forecast.cause.text}</span><span>через {formatCountdown(secondsUntil(alert.forecast.target_time_plan, simTime))}</span></div>
                 {vehicle?.stale && <span className="stale-tag">Данные устарели</span>}
               </button>
@@ -105,7 +106,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
           {riskFilter === 'all' && query.trim() === '' && filtered.length > 7 && <button className="alerts-more" type="button" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Свернуть список' : `Показать все · ещё ${filtered.length - 7} ${alertWord(filtered.length - 7)}`}</button>}
         </div>
       )}
-      <div className="panel-footer"><span className="live-dot" />События обновляются по мере поступления данных<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
+      <div className="panel-footer"><span className={`live-dot${connected ? '' : ' is-paused'}`} />{connected ? 'Лента обновляется вслед за потоком' : 'Лента не обновляется: нет свежих данных'}<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
     </aside>
   )
 }

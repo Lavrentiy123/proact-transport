@@ -11,10 +11,10 @@ const vite = await createServer({
 
 try {
   const { parseWsMessage } = await vite.ssrLoadModule('/src/types/contracts.ts')
-  const { mergeLiveFrame, mergeWsMessage, emptyLiveFieldTimes, emptyLiveSnapshot, vehicleLagSeconds, fetchTrack, isVehicleSnapshot, startLiveEpoch } = await vite.ssrLoadModule('/src/data/liveTransport.ts')
+  const { mergeLiveFrame, mergeWsMessage, emptyLiveFieldTimes, emptyLiveSnapshot, vehicleLagSeconds, fetchTrack, isRewind, isVehicleSnapshot, startLiveEpoch } = await vite.ssrLoadModule('/src/data/liveTransport.ts')
   const { trackAtTime } = await vite.ssrLoadModule('/src/utils/track.ts')
   const { describeDelay } = await vite.ssrLoadModule('/src/utils/format.ts')
-  const { selectedAlert, forecastForSelection, selectionPresent } = await vite.ssrLoadModule('/src/utils/selection.ts')
+  const { selectedAlert, forecastForSelection, selectionPresent, topActiveAlert } = await vite.ssrLoadModule('/src/utils/selection.ts')
   const base = JSON.parse(readFileSync(new URL('../src/data/snapshot.json', import.meta.url), 'utf8'))
   const copy = (value) => structuredClone(value)
 
@@ -42,6 +42,11 @@ try {
   const futureStatus = copy(base)
   futureStatus.status.sim_time = '2026-01-06T13:00:00'
   assert.equal(parseWsMessage(futureStatus), null, 'future nested system status rejects frame')
+  const skewedStatus = copy(base)
+  skewedStatus.status.sim_time = '2026-01-06T12:40:00.020000'
+  assert.ok(parseWsMessage(skewedStatus), 'status computed milliseconds after the frame on a running clock is accepted')
+  skewedStatus.status.sim_time = '2026-01-06T12:40:05'
+  assert.equal(parseWsMessage(skewedStatus), null, 'status seconds ahead of the frame still rejects it')
   const precise = copy(base)
   precise.sim_time = '2026-01-06T12:40:00.123456'
   assert.ok(parseWsMessage(precise), 'microsecond ISO timestamp parses')
@@ -76,8 +81,15 @@ try {
   beforeRestart.status.sim_time = beforeRestart.sim_time
   const oldSession = mergeLiveFrame(emptyLiveSnapshot, beforeRestart, emptyLiveFieldTimes())
   const staleOnSameConnection = mergeLiveFrame(oldSession.snapshot, base, oldSession.times)
-  assert.equal(staleOnSameConnection.acceptedVehicles, false, 'older full frame is rejected within one connection')
-  assert.equal(staleOnSameConnection.snapshot.sim_time, beforeRestart.sim_time, 'same-connection clock stays monotonic')
+  assert.equal(staleOnSameConnection.acceptedVehicles, false, 'merge alone rejects an older full frame within one connection')
+  assert.equal(staleOnSameConnection.snapshot.sim_time, beforeRestart.sim_time, 'merge alone keeps the same-connection clock monotonic')
+  assert.equal(isRewind(base, oldSession.times), true, 'full frame minutes behind accepted positions is a replay rewind and starts a new epoch')
+  assert.equal(isRewind({ ...base, sim_time: '2026-01-06T12:44:30' }, oldSession.times), false, 'frame less than a minute late is not a rewind')
+  assert.equal(isRewind({ type: 'status', sim_time: base.sim_time, status: base.status }, oldSession.times), false, 'partial frame cannot trigger a rewind')
+  assert.equal(isRewind(base, emptyLiveFieldTimes()), false, 'first frame of a session is not a rewind')
+  const afterRewind = startLiveEpoch(base)
+  assert.equal(afterRewind.acceptedVehicles, true, 'rewound replay frame replaces positions')
+  assert.equal(afterRewind.snapshot.sim_time, base.sim_time, 'rewound replay frame resets the display clock')
   assert.equal(isVehicleSnapshot({ type: 'status', sim_time: base.sim_time, status: base.status }), false, 'status frame cannot start new vehicle epoch')
   assert.throws(() => startLiveEpoch({ type: 'status', sim_time: base.sim_time, status: base.status }), 'partial reconnect frame cannot reset old snapshot')
   assert.equal(oldSession.snapshot.sim_time, beforeRestart.sim_time, 'cached snapshot remains available during reconnect')
@@ -135,7 +147,11 @@ try {
   const separateForecast = { ...vehicle.forecast, delay_pred_s: -60, risk: 'green' }
   const anotherAlert = { ...base.alerts[0], alert_id: 'other-event', forecast: separateForecast }
   assert.equal(forecastForSelection(vehicle, selectedAlert([base.alerts[0], anotherAlert], vehicle.tr_id, 'other-event')), separateForecast, 'explicit alert drives shared forecast')
-  assert.equal(forecastForSelection(vehicle, selectedAlert([base.alerts[0], anotherAlert], vehicle.tr_id, null)), vehicle.forecast, 'vehicle selection does not silently choose an older alert')
+  assert.equal(forecastForSelection(vehicle, selectedAlert([base.alerts[0], anotherAlert], vehicle.tr_id, null)), vehicle.forecast, 'without a chosen alert the vehicle forecast is shown')
+  const urgent = { ...base.alerts[0], alert_id: 'urgent-event', priority: base.alerts[0].priority + 10 }
+  const resolved = { ...base.alerts[0], alert_id: 'resolved-event', priority: base.alerts[0].priority + 50, status: 'resolved' }
+  assert.equal(topActiveAlert([base.alerts[0], urgent, resolved], vehicle.tr_id)?.alert_id, 'urgent-event', 'vehicle picked on the map opens its most urgent active alert')
+  assert.equal(topActiveAlert(base.alerts, 424242), undefined, 'vehicle without alerts opens no alert')
 
   console.log('Contract smoke passed')
 } finally {
