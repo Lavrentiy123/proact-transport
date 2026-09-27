@@ -45,7 +45,7 @@ function dwell(value: number | null | undefined): string {
 export default function IncidentCard({ source, connected, vehicle, alert, forecast, simTime, positionAgeS, forecastWallAgeS, segmentFrom, outcome, onAction, hasSchedule }: Props) {
   const [busy, setBusy] = useState<'apply' | 'dismiss' | null>(null)
   if (!vehicle && !alert) {
-    return <Panel as="aside" className="incident-panel" aria-label="Карточка выбранного борта"><PanelHeader eyebrow="Детали события" title="Карточка борта" /><EmptyState icon={<BusFront size={30} />} title="Выберите борт" hint="Нажмите на маркер или предупреждение." /></Panel>
+    return <Panel as="aside" className="incident-panel" aria-label="Карточка выбранного борта"><PanelHeader title="Карточка борта" /><EmptyState icon={<BusFront size={30} />} title="Выберите борт" hint="Нажмите на маркер или предупреждение." /></Panel>
   }
 
   async function act(action: 'apply' | 'dismiss') {
@@ -64,7 +64,7 @@ export default function IncidentCard({ source, connected, vehicle, alert, foreca
   const positionLine = vehicle ? `Позиция: ${Math.round(positionAgeS ?? vehicle.last_seen_s)} с назад · скорость на момент снимка ${Math.round(vehicle.speed_kmh)} км/ч` : null
   return (
     <Panel as="aside" className="incident-panel" aria-label="Карточка выбранного борта">
-      <PanelHeader eyebrow="Детали события" title={`Борт ${vehicle?.tr_id ?? alert?.tr_id}`} actions={<BusFront size={22} className="heading-icon" />}>
+      <PanelHeader title={`Борт ${vehicle?.tr_id ?? alert?.tr_id}`} actions={<BusFront size={22} className="heading-icon" />}>
         {alert && <span className="incident-event-title">{alert.title} · {displayClock(alert.created_at)}</span>}
       </PanelHeader>
       {forecast ? (

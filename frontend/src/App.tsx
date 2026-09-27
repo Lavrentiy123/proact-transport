@@ -141,6 +141,8 @@ export default function App() {
 
   return (
     <div className="dashboard">
+      <a className="skip-link" href="#alerts-feed">К предупреждениям</a>
+      <h1 className="sr-only">ПроАкт.Транспорт — диспетчерская</h1>
       <StatusBar
         snapshot={snapshot} connected={connected} source={source} scenario={scenario} horizon={horizon}
         liveConnection={liveConnection} liveStalled={liveStalled} hasVehicleSnapshot={hasVehicleSnapshot} hasAlertSnapshot={hasAlertSnapshot}
@@ -149,6 +151,7 @@ export default function App() {
         playing={playing} onScenarioChange={changeScenario} onTogglePlayback={() => setPlaying((value) => !value)}
         onRestart={() => { setElapsedSeconds(0); setPlaying(scenario !== 'disconnected') }} onSourceChange={changeSource}
       />
+      <div className="dashboard-banners">
       {!connected && <Banner tone="error" className="connection-banner" icon={<SignalZero size={17} />}
         action={waitingTooLong && <Button onClick={() => changeSource('demo')}>Вернуться в демо</Button>}>{source === 'live'
         ? liveConnection === 'connected' ? waitingTooLong ? 'Данные о бортах не поступают. Проверьте источник или вернитесь в демо.'
@@ -158,6 +161,8 @@ export default function App() {
       {degraded && <Banner tone="warning" className="degraded-banner" icon={<TriangleAlert size={17} />}>Поток телеметрии прерван (деградация): пакетов нет дольше 15 с, прогнозы строятся по расписанию. Связь восстановится автоматически.</Banner>}
       {mlDown && <Banner tone="warning" className="degraded-banner" icon={<CloudOff size={17} />}>ML-ядро недоступно: прогнозы «по расписанию» до восстановления сервиса.</Banner>}
       {source === 'live' && trackError && <Banner tone="warning" className="route-banner">Маршрут выбранного борта недоступен. Положение и прогноз из потока продолжают отображаться.</Banner>}
+      </div>
+      <main className="dashboard-main">
       <div className="workbench">
         <AlertList alerts={alerts} vehicles={vehicles} selectedTrId={selectedTrId} selectedAlertId={alert?.alert_id ?? null} simTime={snapshot.sim_time} loading={!hasAlertSnapshot} feed={!connected ? 'paused' : degraded ? 'degraded' : 'live'} onSelect={(trId, alertId) => { setSelection({ trId, alertId, pickedByUser: true }); setFocusSelectionToken((current) => current + 1) }} />
         <Suspense fallback={<section className="map-panel" aria-label="Карта движения бортов"><div className="map-empty">Загрузка карты…</div></section>}>
@@ -167,8 +172,10 @@ export default function App() {
         <IncidentCard key={selectedTrId ?? 'none'} source={source} connected={connected} vehicle={vehicle} alert={alert} forecast={displayForecast} simTime={snapshot.sim_time} positionAgeS={vehicle ? vehicle.last_seen_s + (source === 'live' ? Math.max(liveWallAgeS, liveTimeLagS) : 0) : null} forecastWallAgeS={isLive ? live.streamAgeS : 0}
           segmentFrom={segmentFrom} outcome={outcome} onAction={actions.act} hasSchedule={hasSchedule} />
       </div>
-      <MareyChart source={source} track={track} forecast={displayForecast} simTime={snapshot.sim_time} loading={isLive && liveTrack.loading} routeError={source === 'live' && trackError} />
-      <footer className="dashboard-footer"><span>ПроАкт.Транспорт · {source === 'demo' ? 'демонстрационная версия' : 'живой поток'}</span><span>{source === 'demo' ? 'Синтетический маршрут · прогноз из контрактного примера' : 'Источник данных определяется подключённым сервером'}</span></footer>
+      <div className="marey-band">
+        <MareyChart source={source} track={track} forecast={displayForecast} simTime={snapshot.sim_time} loading={isLive && liveTrack.loading} routeError={source === 'live' && trackError} />
+      </div>
+      </main>
     </div>
   )
 }

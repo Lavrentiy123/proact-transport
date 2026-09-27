@@ -17,7 +17,7 @@ function renderList(items: Alert[], props: Partial<Parameters<typeof AlertList>[
   return { onSelect, list: screen.getByRole('complementary', { name: 'Лента предупреждений' }) }
 }
 
-const eventButtons = (list: HTMLElement) => within(list).queryAllByRole('button', { name: /^Событие / })
+const eventButtons = (list: HTMLElement) => within(list).queryAllByRole('button', { name: /^Борт \d+, / })
 
 describe('AlertList', () => {
   it('without alerts says so, and waits for the first snapshot while loading', () => {
@@ -34,7 +34,7 @@ describe('AlertList', () => {
   it('one alert selects its vehicle', () => {
     const { list, onSelect } = renderList([base.alerts![0]])
     const [item] = eventButtons(list)
-    expect(item.getAttribute('aria-label')).toContain(`борт ${base.alerts![0].tr_id}`)
+    expect(item.getAttribute('aria-label')).toContain(`Борт ${base.alerts![0].tr_id}`)
     fireEvent.click(item)
     expect(onSelect).toHaveBeenCalledWith(base.alerts![0].tr_id, base.alerts![0].alert_id)
   })
@@ -64,7 +64,17 @@ describe('AlertList', () => {
     const { list } = renderList(alerts(100))
     expect(within(list).getByText('100')).toBeTruthy()
     expect(within(list).getByRole('button', { name: 'Показать все · ещё 93 предупреждения' })).toBeTruthy()
-    expect(eventButtons(list)[0].getAttribute('aria-label')).toMatch(/^Событие alert-0:/)
+    expect(eventButtons(list)[0].getAttribute('aria-label')).toMatch(/^Борт 100000,/)
+  })
+
+  it('«Показать все» reports its state and the item has no internal id', () => {
+    const { list } = renderList(alerts(8))
+    const more = within(list).getByRole('button', { name: /Показать все/ })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(more)
+    expect(within(list).getByRole('button', { name: 'Свернуть список' }).getAttribute('aria-expanded')).toBe('true')
+    expect(eventButtons(list)[0].getAttribute('aria-label')).not.toContain('alert-0')
+    expect(eventButtons(list)[0].getAttribute('aria-label')).toMatch(/план (через \d+ мин|прошёл \d+ мин назад)$/)
   })
 
   it('filters by risk and vehicle number without changing the total', () => {

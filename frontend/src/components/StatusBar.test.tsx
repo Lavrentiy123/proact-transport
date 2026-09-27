@@ -47,7 +47,7 @@ describe('StatusBar', () => {
     const summary = screen.getByRole('region', { name: 'Состояние движения' })
     expect(summary.textContent).toMatch(new RegExp(`${base.vehicles!.length}\\s*в демо-снимке`))
     expect(summary.textContent).toMatch(/1\s*критично/)
-    expect(summary.textContent).toMatch(/1\s*алертов/)
+    expect(summary.textContent).toMatch(/1\s*предупреждение(?!й)/)
   })
 
   it('shows dashes until the first snapshot', () => {

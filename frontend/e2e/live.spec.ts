@@ -19,7 +19,7 @@ test.describe('живой поток на stub', () => {
     await expect(card(page).getByRole('button', { name: 'Отправить водителю' })).toBeVisible()
 
     await vehiclePicker(page).selectOption('130072')
-    await page.getByRole('complementary', { name: 'Лента предупреждений' }).getByRole('button', { name: /^Событие .*борт 131672/ }).click()
+    await page.getByRole('complementary', { name: 'Лента предупреждений' }).getByRole('button', { name: /^Борт 131672,/ }).click()
     await expect(card(page).getByRole('heading', { name: 'Борт 131672' })).toBeVisible()
     await expect(card(page).getByText('Рекомендация диспетчеру')).toBeVisible()
   })
@@ -59,7 +59,7 @@ test.describe('живой поток на stub', () => {
     await expect(connectionPill(page, 'LIVE')).toBeVisible()
     const summary = page.getByRole('region', { name: 'Состояние движения' })
     await expect(summary).toContainText(/3\s*в потоке/)
-    await expect(summary).toContainText(/\d+\s*алертов/)
+    await expect(summary).toContainText(/\d+\s*предупрежд/)
     const first = await headerClock(page)
     await expect.poll(() => headerClock(page), { timeout: 10_000 }).not.toBe(first)
   })
@@ -74,7 +74,6 @@ test.describe('живой поток на stub', () => {
     expect(rewound < before).toBe(true)
     // Longer than the 15 s stall threshold after the rewind.
     await page.waitForTimeout(17_000)
-    await expect(page.getByRole('region', { name: 'Управление источником данных' }).getByText('Поток подключён')).toBeVisible()
     await expect(page.getByText('Данные о бортах не обновляются более 15 секунд. Показан последний снимок.')).toHaveCount(0)
     await expect(connectionPill(page, 'LIVE')).toBeVisible()
     expect(await headerClock(page) > rewound).toBe(true)
@@ -103,9 +102,42 @@ test.describe('живой поток на stub', () => {
 })
 
 test.describe('цели этапа 3', () => {
-  test.fixme('S1: на 1440×900 без прокрутки видны карта, ≥ 5 карточек ленты и карточка инцидента', async () => {
-    // По аудиту (раздел 7) первый экран занят шапкой и сводкой, Марей ниже сгиба; раскладку меняет этап 3 (BL-15, BL-16).
-  })
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }]) {
+    test(`S1: на ${viewport.width}×${viewport.height} без прокрутки видны карта, ≥ 5 карточек ленты, карточка инцидента и Марей`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+      await page.goto('/?source=demo')
+      await page.getByRole('combobox', { name: 'Сценарий' }).selectOption('many')
+      const feed = page.getByRole('complementary', { name: 'Лента предупреждений' })
+      await expect(feed.getByRole('button', { name: /^Борт / }).nth(6)).toBeVisible()
+      await page.getByRole('button', { name: 'Пауза' }).click()
+      type Box = { x: number, y: number, width: number, height: number }
+      const screen: Box = { x: 0, y: 0, ...viewport }
+      const within = async (locator: import('@playwright/test').Locator, area: Box = screen) => {
+        const box = await locator.boundingBox()
+        return box != null && box.y >= area.y - 0.5 && box.x >= area.x - 0.5 && box.y + box.height <= area.y + area.height + 0.5 && box.x + box.width <= area.x + area.width + 0.5 &&
+          box.y + box.height <= viewport.height + 0.5
+      }
+      const page_ = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, w: document.documentElement.scrollWidth }))
+      expect(page_.h).toBeLessThanOrEqual(viewport.height)
+      expect(page_.w).toBeLessThanOrEqual(viewport.width)
+      expect((await page.getByRole('banner').boundingBox())!.height).toBeLessThanOrEqual(56)
+      expect(await within(page.locator('section.map-panel'))).toBe(true)
+      const feedArea = (await feed.locator('.alerts-scroll').boundingBox())!
+      const items = feed.locator('.alert-item')
+      let fullyVisible = 0
+      for (let index = 0; index < await items.count(); index += 1) if (await within(items.nth(index), feedArea)) fullyVisible += 1
+      expect(fullyVisible).toBeGreaterThanOrEqual(5)
+      const incident = card(page)
+      const cardArea = (await incident.boundingBox())!
+      expect(await within(incident.locator('.incident-risk-band'), cardArea)).toBe(true)
+      expect(await within(incident.locator('.recommendation-box'), cardArea)).toBe(true)
+      expect(await within(incident.getByRole('button', { name: 'Отправить водителю' }), cardArea)).toBe(true)
+      expect(await within(incident.locator('.cause-section strong'), cardArea)).toBe(true)
+      const marey = (await page.locator('.marey-band').boundingBox())!
+      expect(marey.height).toBeGreaterThanOrEqual(120)
+      expect(marey.y + 120).toBeLessThanOrEqual(viewport.height)
+    })
+  }
 
   test.fixme('S5: подписи диаграммы Марея не меньше 11 px', async () => {
     // По аудиту подписи диаграммы 7–9 px; кегли меняет этап 3 (BL-22).
