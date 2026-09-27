@@ -4,7 +4,7 @@ import type { Forecast, TrackResponse } from '../types/contracts'
 import { haversineMeters } from '../utils/geo'
 import { describeDelay, stopLabel } from '../utils/format'
 import { advanceContractTime, contractTimeMs, displayClock } from '../utils/time'
-import { planTimesOrdered } from '../utils/track'
+import { pickAxisLabels, planTimesOrdered } from '../utils/track'
 import { riskKey } from '../theme/risk'
 import { Panel, PanelHeader } from '../ui'
 
@@ -15,6 +15,7 @@ const LEFT = 60
 const RIGHT = 16
 const TOP = 26
 const BOTTOM = 22
+const AXIS_LABEL_GAP = 8
 const DEFAULT_SIZE = { width: 1000, height: 140 }
 const WINDOW_BACK_MS = 30 * 60_000
 const WINDOW_AHEAD_MS = 40 * 60_000
@@ -132,16 +133,13 @@ function MareyBody({ source, track, forecast, simTime, loading, routeError, size
   const forecastX = forecast ? x(planTargetTime + forecast.delay_pred_s * 1000) : Number.NaN
   const q10X = forecast ? x(planTargetTime + forecast.delay_q10_s * 1000) : Number.NaN
   const q90X = forecast ? x(planTargetTime + forecast.delay_q90_s * 1000) : Number.NaN
-  // A clock label needs about 48 px; narrow screens show every other one of those that fit.
-  const labelSlots = Math.max(2, Math.floor((right - left) / 48))
-  const labelEvery = Math.max(1, Math.ceil(stops.length / labelSlots)) * (narrow ? 2 : 1)
   const distanceTicks = bottom - top < 90 ? [0, .5, 1] : [0, .25, .5, .75, 1]
   const forecastArrival = forecast ? advanceContractTime(forecast.target_time_plan, forecast.delay_pred_s) : null
   const forecastRisk = `risk-${riskKey(forecast?.risk)}`
   const stopX = stops.map((stop) => x(contractTimeMs(stop.time_plan)))
-  const labelled = stops.map((_, index) => index % labelEvery === 0)
-  const lastLabelled = labelled.lastIndexOf(true)
-  if (lastLabelled < stops.length - 1 && stopX.at(-1)! - stopX[lastLabelled] >= 48) labelled[stops.length - 1] = true
+  // Stops bunch up and share plan minutes, so labels are thinned by pixels: "HH:MM" measures 28–34 px at 12 px.
+  const clockTicks = stops.map((stop, index) => ({ x: stopX[index], text: displayClock(stop.time_plan).slice(0, 5) }))
+  const labelled = new Set(pickAxisLabels(clockTicks, fontSize * 3, AXIS_LABEL_GAP, [0, stops.length - 1, targetIndex]))
   const forecastY = y(targetDistance)
   const forecastLabel = forecastArrival ? `${describeDelay(forecast!.delay_pred_s)} · ${displayClock(forecastArrival).slice(0, 5)}` : ''
   // The label sits above the point and flips to its left near the right edge.
@@ -156,7 +154,7 @@ function MareyBody({ source, track, forecast, simTime, loading, routeError, size
       </PanelHeader>
       <div className="marey-plot" ref={plotRef}><svg className="marey-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Линия плана, наблюдения и диапазон прогноза">
         {distanceTicks.map((ratio) => <g key={ratio}><line className="marey-grid" x1={left} x2={right} y1={y(totalDistance * ratio)} y2={y(totalDistance * ratio)} strokeDasharray="4 5" /><text className="marey-axis" x={left - 8} y={y(totalDistance * ratio) + 4} textAnchor="end" fontSize={fontSize}>{(totalDistance * ratio / 1000).toFixed(1)} км</text></g>)}
-        {stops.map((stop, index) => <g key={`${stop.stop_id}-${stop.seq}`}><title>{stopLabel(stop.name, stop.stop_id)} · план {displayClock(stop.time_plan)}</title><line className="marey-grid" x1={stopX[index]} x2={stopX[index]} y1={top} y2={bottom} strokeDasharray="3 7" />{labelled[index] && <text className="marey-axis" x={stopX[index]} y={bottom + 16} textAnchor="middle" fontSize={fontSize}>{displayClock(stop.time_plan).slice(0, 5)}</text>}</g>)}
+        {stops.map((stop, index) => <g key={`${stop.stop_id}-${stop.seq}`}><title>{stopLabel(stop.name, stop.stop_id)} · план {displayClock(stop.time_plan)}</title><line className="marey-grid" x1={stopX[index]} x2={stopX[index]} y1={top} y2={bottom} strokeDasharray="3 7" />{labelled.has(index) && <text className="marey-axis" x={stopX[index]} y={bottom + 16} textAnchor="middle" fontSize={fontSize}>{clockTicks[index].text}</text>}</g>)}
         <polyline className="marey-plan" points={planPoints} fill="none" strokeWidth="2.5" strokeDasharray="7 5" />
         <polyline className="marey-observed" points={observedPoints} fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         {forecast && targetIndex >= 0 && Number.isFinite(forecastX) && <g className={`marey-forecast ${forecastRisk}`}><line className="marey-forecast-range" x1={q10X} x2={q90X} y1={forecastY} y2={forecastY} strokeWidth="10" strokeOpacity=".3" strokeLinecap="round" /><line className="marey-forecast-range" x1={q10X} x2={q90X} y1={forecastY} y2={forecastY} strokeWidth="2" /><circle cx={forecastX} cy={forecastY} r="6" strokeWidth="2" /><text className="marey-forecast-label" x={labelOnLeft ? forecastX - 12 : forecastX + 12} y={Math.max(fontSize + 2, forecastY - 10)} textAnchor={labelOnLeft ? 'end' : 'start'} fontSize={fontSize}>{forecastLabel}</text></g>}

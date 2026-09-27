@@ -22,3 +22,21 @@ export function trackAtTime(track: TrackResponse | null, simTime: string): Track
     })),
   }
 }
+
+export interface AxisTick { x: number; text: string }
+
+/** Chooses time-axis labels by their pixel extent: centred boxes of `labelWidth` stay at least `minGap` apart,
+ * a clock text appears once, and `keep` (first, last, target stop) wins over its neighbours. */
+export function pickAxisLabels(ticks: AxisTick[], labelWidth: number, minGap: number, keep: number[] = []): number[] {
+  const spacing = labelWidth + minGap
+  const chosen: number[] = []
+  const texts = new Set<string>()
+  const fits = (index: number) => !texts.has(ticks[index].text) && chosen.every((other) => Math.abs(ticks[other].x - ticks[index].x) >= spacing)
+  const order = [...keep.filter((index) => index >= 0 && index < ticks.length), ...ticks.map((_, index) => index)]
+  for (const index of order) {
+    if (!Number.isFinite(ticks[index].x) || !fits(index)) continue
+    chosen.push(index)
+    texts.add(ticks[index].text)
+  }
+  return chosen.sort((a, b) => a - b)
+}
