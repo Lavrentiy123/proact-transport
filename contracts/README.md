@@ -40,18 +40,38 @@
 
 Одна функция для обучения и для потока, иначе прогноз на потоке разойдётся с офлайн-метриками:
 
+Для backend главное — `OnlineVehicle`: буфер 30 мин + детектор прибытий + те же признаки, что при обучении
+(совпадение онлайн/офлайн проверяет `tests/ml/test_online_parity.py`, допуск 1e-6).
+
 ```python
-from features import FEATURE_NAMES, build_features, StopDetector
+from features import OnlineVehicle, load_schedule, features_to_json
+
+sched = load_schedule("data/test/schedule.csv")          # tr_id, stop_id, time_plan, lat, lon, name
+veh = {tr: OnlineVehicle(rows, tr_id=tr) for tr, rows in sched.groupby("tr_id")}
+
+veh[tr].push(t, lat, lon, speed, heading, valid)          # на каждый NDTP-пакет (можно не по порядку)
+tgt = veh[tr].target_at(now)                              # (stop_id, time_plan) в окне (now+10, now+15] или None
+feats = veh[tr].features_at(now)                          # dict FEATURE_NAMES или None (нет остановки в окне)
+row = {"tr_id": tr, "features": features_to_json(feats)}  # NaN -> None для PredictRow
+veh[tr].derived(now)            # {"cur_dev_s", "seg_speed_kmh", "dwell_s"} для VehicleState
+veh[tr].is_opening_or_closing_trip(now), veh[tr].stop_name(stop_id), veh[tr].detector.arrivals
+```
+
+Низкоуровневое API (обучение, тесты):
+
+```python
+from features import FEATURE_NAMES, build_features, build_features_batch, StopDetector
 
 det = StopDetector(schedule_rows_for_tr)   # плановые остановки борта
 det.update(t, lat, lon, speed)             # на каждый пакет; фиксирует прибытия
-det.cur_dev_s                              # онлайн-отклонение на последней пройденной остановке
+det.cur_dev_s(T)                           # отклонение на последней пройденной к T остановке (NaN, если нет)
 
-feats: dict[str, float | None] = build_features(
-    track=track_until_T,          # DataFrame[t, lat, lon, speed, heading, valid], только t <= T
+feats: dict[str, float] = build_features(
+    track=track,                  # DataFrame[t, lat, lon, speed, heading, valid]; строки t > T игнорируются
     schedule=schedule_rows_for_tr,
     target_stop_id=..., target_time_plan=..., T=...,
-    cur_dev_s=det.cur_dev_s,
+    cur_dev_s=None,               # None — восстановленное детектором (как на потоке)
+    arrivals=det,                 # необязательно: StopDetector / dict / None (детектор внутри)
 )
 ```
 

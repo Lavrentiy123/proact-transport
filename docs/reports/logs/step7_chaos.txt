@@ -1,0 +1,15 @@
+# 2026-09-26T14:33:39Z HEAD 483dced
+$ bash scripts/chaos.sh
+== исходно: mode=LIVE sessions=16 predictor=ml-core |      10 "quality":"full" 
+== 1. обрыв потока: docker compose stop replay
+   источник остановлен за 0.8 с; жду DEGRADED...
+   DEGRADED через 14.7 с после завершения docker compose stop, через 15.6 с от начала команды stop
+   во время обрыва: /health=200 sessions=0 predictor=ml-core:sched |       9 "quality":"fallback" 
+== 2. восстановление: docker compose start replay
+   LIVE через 1.8 с после запуска источника
+   после восстановления: sessions=16 predictor=ml-core |       9 "quality":"full" 
+== 3. падение ml-core: docker compose stop ml-core
+   прогноз по правилу через 1.0 с; /health=200 |       9 "quality":"fallback" 
+   ml-core снова считает через 31.6 с после запуска (breaker half-open раз в 30 с)
+CHAOS DONE: degraded=14.7s live=1.8s
+exit_code: 0

@@ -1,0 +1,5 @@
+# чистое окружение: только backend/requirements-dev.txt (без catboost)
+$ python -m pytest tests/backend
+=========================== short test summary info ===========================
+SKIPPED [1] tests\backend\test_tick.py:183: could not import 'catboost': No module named 'catboost'
+56 passed, 1 skipped in 16.69s

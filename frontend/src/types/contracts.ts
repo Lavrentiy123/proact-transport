@@ -108,6 +108,17 @@ export interface HorizonMetrics {
   online_mae_baseline_s: number | null
 }
 
+export interface ActionResponse {
+  alert_id: string
+  status: string
+  driver_message: string
+  driver_reply: string | null
+}
+
+/** Backend computes status after vehicles and alerts on a running clock, so at
+ * REPLAY_SPEED=10 its sim_time is milliseconds ahead of the frame time. */
+const STATUS_CLOCK_SKEW_US = 2_000_000
+
 /** Reject malformed live frames before they reach rendering components. */
 export function parseWsMessage(raw: unknown): WsMessage | null {
   const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -159,7 +170,8 @@ export function parseWsMessage(raw: unknown): WsMessage | null {
   if (raw.alerts != null && (!Array.isArray(raw.alerts) || !raw.alerts.every(alert) ||
     new Set(raw.alerts.map((item) => item.alert_id)).size !== raw.alerts.length)) return null
   if (raw.status != null && !status(raw.status)) return null
-  if (raw.status != null && contractTimeUs((raw.status as { sim_time: string }).sim_time) > contractTimeUs(raw.sim_time)) return null
+  if (raw.status != null &&
+    contractTimeUs((raw.status as { sim_time: string }).sim_time) - contractTimeUs(raw.sim_time) > STATUS_CLOCK_SKEW_US) return null
   const issuedInFuture = (item: { forecast?: { issued_at?: string } | null }) =>
     item.forecast && contractTimeUs(item.forecast.issued_at ?? '') > contractTimeUs(raw.sim_time as string)
   if (Array.isArray(raw.vehicles) && raw.vehicles.some(issuedInFuture)) return null

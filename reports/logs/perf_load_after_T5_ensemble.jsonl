@@ -1,0 +1,18 @@
+{"metric": "ndtp_packets_per_s", "value": 14.9, "how": "разница ndtp_packets_total за 481 с"}
+{"metric": "tick_duration_ms{quantile=\"0.5\"}", "value": 61.0102, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "tick_duration_ms{quantile=\"0.99\"}", "value": 224.382, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "infer_ms{quantile=\"0.5\"}", "value": 27.8871, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "infer_ms{quantile=\"0.99\"}", "value": 123.717, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "tick_overruns_total", "value": 1.0, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "tick_errors_total", "value": 0.0, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "ndtp_crc_errors_total", "value": 0.0, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "tick_rows", "value": 7.0, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "dropped_total{kind=\"late_beyond_buffer\"}", "value": 0.0, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "online_mae_seconds{model=\"forecast\"}", "value": 88.7703, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "online_mae_seconds{model=\"baseline_cur_dev\"}", "value": 150.566, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "horizon_share_in_window", "value": 1.0, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "journal_resolved_total", "value": 6507.0, "how": "/metrics в конце прогона (квантили — последние 2000 тиков)"}
+{"metric": "rest_vehicles_ms_p50", "value": 39.2, "how": "GET /api/v1/vehicles, 454 запросов"}
+{"metric": "rest_vehicles_ms_p99", "value": 208.8, "how": "то же"}
+{"metric": "ws_snapshot_bytes", "value": 7424, "how": "размер WsMessage, 5 сообщений"}
+{"metric": "ws_period_s", "value": 0.96, "how": "средний интервал между сообщениями WS"}

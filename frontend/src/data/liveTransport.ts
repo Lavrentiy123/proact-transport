@@ -1,4 +1,4 @@
-import { parseWsMessage, type TrackResponse, type WsMessage } from '../types/contracts'
+import { parseWsMessage, type ActionResponse, type HorizonMetrics, type TrackResponse, type WsMessage } from '../types/contracts'
 import { contractTimeUs } from '../utils/time'
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected'
@@ -8,8 +8,17 @@ export const emptyLiveSnapshot: WsMessage = { type: 'snapshot', sim_time: '', ve
 export interface LiveFieldTimes { vehicles: number; alerts: number; status: number }
 export const emptyLiveFieldTimes = (): LiveFieldTimes => ({ vehicles: Number.NEGATIVE_INFINITY, alerts: Number.NEGATIVE_INFINITY, status: Number.NEGATIVE_INFINITY })
 
+/** A full snapshot this far behind the accepted positions is a replay rewind, not a late frame. */
+const REWIND_THRESHOLD_US = 60_000_000
+
 export function isVehicleSnapshot(message: WsMessage): boolean {
   return message.type === 'snapshot' && message.vehicles != null
+}
+
+/** replay --loop and POST /replay/control move the clock back without reopening the WebSocket. */
+export function isRewind(message: WsMessage, times: LiveFieldTimes): boolean {
+  return isVehicleSnapshot(message) && Number.isFinite(times.vehicles) &&
+    contractTimeUs(message.sim_time) < times.vehicles - REWIND_THRESHOLD_US
 }
 
 /** A new WebSocket session can restart its simulation clock. The first frame
@@ -127,4 +136,30 @@ export async function fetchTrack(trId: number, signal: AbortSignal): Promise<Tra
     validTime(item[0]) && finite(item[1]) && finite(item[2])
   if (!track.stops.every(validStop) || !track.trail.every(validTrail)) throw new Error('Некорректный ответ маршрута')
   return track as TrackResponse
+}
+
+/** Горизонт 10–15 минут и онлайн-MAE, которые backend считает по журналу прогнозов потока. */
+export async function fetchHorizon(signal: AbortSignal): Promise<HorizonMetrics | null> {
+  const response = await fetch('/api/v1/metrics/horizon', { signal })
+  if (!response.ok) return null
+  const value = await response.json() as Partial<HorizonMetrics>
+  if (typeof value.forecasts_total !== 'number' || typeof value.share_lead_in_window !== 'number') return null
+  return value as HorizonMetrics
+}
+
+/** Решение диспетчера по алерту: apply — отправить рекомендацию водителю, dismiss — отклонить. */
+export async function postAction(alertId: string, action: 'apply' | 'dismiss'): Promise<ActionResponse> {
+  const response = await fetch('/api/v1/actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alert_id: alertId, action }),
+    signal: AbortSignal.timeout(8_000),
+  })
+  if (response.status === 409) throw new Error('алерт уже снят или решён')
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const value = await response.json() as Partial<ActionResponse>
+  if (typeof value.alert_id !== 'string' || typeof value.status !== 'string' || typeof value.driver_message !== 'string') {
+    throw new Error('Некорректный ответ на действие')
+  }
+  return value as ActionResponse
 }
