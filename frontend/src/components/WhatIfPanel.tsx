@@ -3,6 +3,7 @@ import { FlaskConical } from 'lucide-react'
 import type { Forecast } from '../types/contracts'
 import { formatDelay } from '../utils/format'
 import { advanceContractTime, displayClock } from '../utils/time'
+import { KeyValue, Panel } from '../ui'
 
 interface Props {
   forecast: Forecast
@@ -36,22 +37,24 @@ export default function WhatIfPanel({ forecast, speedToPlanKmh }: Props) {
   const arrival = advanceContractTime(forecast.target_time_plan, delay)
   const gain = forecast.delay_pred_s - delay
   return (
-    <div className="whatif-box" aria-label="Что если: скорость до остановки">
+    <Panel as="div" variant="inset" className="whatif-box" aria-label="Что если: скорость до остановки">
       <div className="whatif-title"><FlaskConical size={15} /> Что если · средняя скорость до остановки</div>
       <label className="whatif-slider">
         <input type="range" min={MIN_KMH} max={MAX_KMH} step={0.1} value={speed}
           onChange={(event) => setSpeed(Number(event.target.value))} aria-label="Средняя скорость до остановки, км/ч" />
         <strong>{Math.round(speed)} км/ч</strong>
       </label>
-      <div className="whatif-row"><span>Отклонение при этой скорости</span><strong>{formatDelay(delay)}</strong></div>
-      <div className="whatif-row"><span>Прибытие</span><strong>{displayClock(arrival ?? undefined).slice(0, 5)}</strong></div>
-      <div className="whatif-row">{Math.abs(gain) < 5
-        ? <><span>Как в прогнозе модели</span><strong>—</strong></>
-        : <><span>{gain > 0 ? 'Отыгрывает к прогнозу модели' : 'Теряет к прогнозу модели'}</span><strong>{formatDelay(Math.abs(gain)).replace(/^\+/, '')}</strong></>}</div>
+      <KeyValue variant="dense" className="whatif-rows" rows={[
+        { label: 'Отклонение при этой скорости', value: formatDelay(delay) },
+        { label: 'Прибытие', value: displayClock(arrival ?? undefined).slice(0, 5) },
+        Math.abs(gain) < 5
+          ? { label: 'Как в прогнозе модели', value: '—' }
+          : { label: gain > 0 ? 'Отыгрывает к прогнозу модели' : 'Теряет к прогнозу модели', value: formatDelay(Math.abs(gain)).replace(/^\+/, '') },
+      ]} />
       <span className="whatif-note">
         Модель ожидает ~{Math.round(modelSpeed)} км/ч; по плану успевает при {Math.round(speedToPlanKmh)} км/ч.
         До остановки ~{(distM / 1000).toFixed(1)} км по маршруту; стоянки на промежуточных остановках не учтены.
       </span>
-    </div>
+    </Panel>
   )
 }

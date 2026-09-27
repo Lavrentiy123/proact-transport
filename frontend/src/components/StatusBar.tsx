@@ -4,6 +4,7 @@ import type { ConnectionState } from '../data/liveTransport'
 import type { HorizonMetrics, WsMessage } from '../types/contracts'
 import { displayClock, displayDay } from '../utils/time'
 import { RISK } from '../theme/risk'
+import { Button, RiskMark, StatusDot, StatusPill, type StatusState } from '../ui'
 
 interface Props {
   snapshot: WsMessage
@@ -44,10 +45,11 @@ export default function StatusBar({
   // A broken socket outranks the stale-data detector: the dispatcher must see that the link is down.
   const offline = source === 'demo' ? !connected : liveConnection === 'disconnected'
   const connecting = source === 'live' && liveConnection === 'connecting'
-  const pillState = connected ? degraded ? 'is-degraded' : 'is-connected' : offline ? 'is-disconnected' : 'is-waiting'
+  const pillState: StatusState = connected ? degraded ? 'degraded' : source === 'demo' ? 'demo' : 'live'
+    : offline ? 'offline' : !connecting && liveStalled ? 'stale' : 'waiting'
   const pillText = connected ? degraded ? 'ДЕГРАДАЦИЯ' : mode : offline ? 'НЕТ СВЯЗИ' : connecting ? 'ПОДКЛЮЧЕНИЕ' : liveStalled ? 'ДАННЫЕ УСТАРЕЛИ' : waiting ? 'ОЖИДАНИЕ ДАННЫХ' : 'НЕТ СВЯЗИ'
-  const dotState = source === 'demo' ? connected ? 'is-ok' : 'is-bad'
-    : connected ? degraded ? 'is-wait' : 'is-ok' : liveConnection === 'disconnected' ? 'is-bad' : 'is-wait'
+  const dotState: StatusState = source === 'demo' ? connected ? 'demo' : 'offline'
+    : connected ? degraded ? 'degraded' : 'live' : liveConnection === 'disconnected' ? 'offline' : liveStalled ? 'stale' : 'waiting'
 
   return (
     <>
@@ -60,10 +62,8 @@ export default function StatusBar({
           </div>
         </div>
         <div className="topbar-right">
-          <div className={`mode-pill ${pillState}`} title={degraded ? 'Пакетов NDTP нет дольше 15 с: прогноз по расписанию' : undefined}>
-            {degraded ? <TriangleAlert size={15} /> : connected ? <Wifi size={15} /> : <WifiOff size={15} />}
-            <span>{pillText}</span>
-          </div>
+          <StatusPill state={pillState} className="mode-pill" title={degraded ? 'Пакетов NDTP нет дольше 15 с: прогноз по расписанию' : undefined}
+            icon={degraded ? <TriangleAlert size={14} /> : connected ? <Wifi size={14} /> : <WifiOff size={14} />}>{pillText}</StatusPill>
           <div className="header-time"><Clock3 size={17} /> {displayClock(snapshot.sim_time)} <span>МСК</span></div>
           <div className="header-day">{displayDay(snapshot.sim_time)}</div>
         </div>
@@ -71,14 +71,14 @@ export default function StatusBar({
 
       <section className="summary-row" aria-label="Состояние движения">
         <div className="summary-intro">
-          <span className="eyebrow">Мониторинг маршрутов</span>
+          <span className="ui-eyebrow">Мониторинг маршрутов</span>
           <strong>Контроль движения</strong>
           <span className="summary-caption">Прогноз отклонений за 10–15 минут</span>
         </div>
         <div className="summary-metrics">
           <div className="summary-metric"><BusFront size={19} /><span><strong>{count(vehicles.length)}</strong><small>{source === 'demo' ? 'в демо-снимке' : connected ? 'в потоке' : 'в последнем снимке'}</small></span></div>
-          <div className="summary-metric metric-red"><span className="metric-dot" /><span><strong>{count(red)}</strong><small>{RISK.red.label.toLowerCase()}</small></span></div>
-          <div className="summary-metric metric-yellow"><span className="metric-dot" /><span><strong>{count(yellow)}</strong><small>{RISK.yellow.label.toLowerCase()}</small></span></div>
+          <div className="summary-metric metric-red"><RiskMark variant="marker" risk="red" /><span><strong>{count(red)}</strong><small>{RISK.red.label.toLowerCase()}</small></span></div>
+          <div className="summary-metric metric-yellow"><RiskMark variant="marker" risk="yellow" /><span><strong>{count(yellow)}</strong><small>{RISK.yellow.label.toLowerCase()}</small></span></div>
           <div className="summary-metric"><Activity size={19} /><span><strong>{hasAlertSnapshot ? alerts.length : '—'}</strong><small>алертов</small></span></div>
           {source === 'live' && horizon && <div className="summary-metric metric-horizon" title={`Сверено с фактическим прибытием: ${horizon.resolved_total} из ${horizon.forecasts_total}`}>
             <Target size={19} /><span><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'прогнозов за 10–15 мин' : 'прогнозов пока нет'}</small></span></div>}
@@ -91,7 +91,7 @@ export default function StatusBar({
       </section>
 
       <section className="demo-toolbar" aria-label="Управление источником данных">
-        <div className="demo-toolbar-label"><span className={`demo-dot ${dotState}`} />{source === 'demo' ? 'Демо-сценарий' : degraded ? 'Поток в деградации' : connected ? 'Поток подключён' : offline ? 'Нет связи с потоком' : connecting ? 'Подключение к потоку' : liveStalled ? 'Данные устарели' : 'Ожидаем снимок'}</div>
+        <div className="demo-toolbar-label"><StatusDot state={dotState} className="demo-dot" />{source === 'demo' ? 'Демо-сценарий' : degraded ? 'Поток в деградации' : connected ? 'Поток подключён' : offline ? 'Нет связи с потоком' : connecting ? 'Подключение к потоку' : liveStalled ? 'Данные устарели' : 'Ожидаем снимок'}</div>
         <div className="toolbar-controls">
           <label className="toolbar-select-label" htmlFor="source-select">Источник</label>
           <select id="source-select" value={source} onChange={(event) => onSourceChange(event.target.value as 'demo' | 'live')}>
@@ -107,10 +107,8 @@ export default function StatusBar({
                 <option value="empty">Нет данных</option>
                 <option value="disconnected">Потеря связи</option>
               </select>
-              <button className="toolbar-button" onClick={onTogglePlayback} aria-label={playing ? 'Пауза' : 'Продолжить'}>
-                {playing ? <Pause size={16} /> : <Play size={16} />}
-              </button>
-              <button className="toolbar-button" onClick={onRestart} aria-label="Начать заново"><RotateCcw size={16} /></button>
+              <Button variant="icon" onClick={onTogglePlayback} aria-label={playing ? 'Пауза' : 'Продолжить'} icon={playing ? <Pause size={16} /> : <Play size={16} />} />
+              <Button variant="icon" onClick={onRestart} aria-label="Начать заново" icon={<RotateCcw size={16} />} />
               <span className="playback-speed">×{snapshot.status?.replay_speed ?? 1}</span>
             </>
           )}

@@ -10,8 +10,10 @@
   --text-secondary: #c9c5bd;
   --text-tertiary: #9a958d;
   --accent: #7cc4ff;
-  --accent-hover: color-mix(in srgb, var(--accent) 82%, var(--text-primary));
-  --accent-tint: color-mix(in srgb, var(--accent) 16%, var(--surface-1));
+  /* Mixes are precomputed so every consumer (MapLibre, contrast audits) gets plain sRGB:
+     hover = 82 % accent + 18 % text-primary; tints = 16 % colour over surface-1. */
+  --accent-hover: #91ccfc;
+  --accent-tint: #25343f;
   --on-accent: var(--bg-canvas);
   --focus: var(--accent);
 
@@ -19,11 +21,11 @@
   --risk-yellow: #f2c14e;
   --risk-green: #4fd18b;
   --risk-none: #98a2ad;
-  /* Opaque tints: risk text on top of them stays at 4.5:1 or more. */
-  --risk-red-tint: color-mix(in srgb, var(--risk-red) 16%, var(--surface-1));
-  --risk-yellow-tint: color-mix(in srgb, var(--risk-yellow) 16%, var(--surface-1));
-  --risk-green-tint: color-mix(in srgb, var(--risk-green) 16%, var(--surface-1));
-  --risk-none-tint: color-mix(in srgb, var(--risk-none) 16%, var(--surface-1));
+  /* Opaque tints: risk text on top of them stays at 4.5:1 or more (red 4.79, none 5.28, green 6.68, yellow 7.51). */
+  --risk-red-tint: #3a2325;
+  --risk-yellow-tint: #383323;
+  --risk-green-tint: #1e362d;
+  --risk-none-tint: #2a2e32;
 
   --shadow-popover: 0 8px 24px rgb(0 0 0 / .5);
 
