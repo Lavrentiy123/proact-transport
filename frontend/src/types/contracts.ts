@@ -1,3 +1,5 @@
+import { contractTimeUs } from '../utils/time'
+
 /** Mirror of contracts/schemas.py. Times are ISO-8601 in Moscow local time. */
 export type Risk = 'green' | 'yellow' | 'red'
 export type Quality = 'full' | 'degraded' | 'fallback'
@@ -108,28 +110,60 @@ export interface HorizonMetrics {
 
 /** Reject malformed live frames before they reach rendering components. */
 export function parseWsMessage(raw: unknown): WsMessage | null {
-  const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+  const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
   const number = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
-  const date = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d/.test(value)
+  const integer = (value: unknown): value is number => number(value) && Number.isSafeInteger(value)
+  const optionalNumber = (value: unknown) => value == null || number(value)
+  const probability = (value: unknown) => number(value) && value >= 0 && value <= 1
+  const risk = (value: unknown) => value === 'green' || value === 'yellow' || value === 'red'
+  const date = (value: unknown): value is string => {
+    return typeof value === 'string' && Number.isFinite(contractTimeUs(value))
+  }
+  const cause = (value: unknown) => object(value) &&
+    typeof value.code === 'string' && typeof value.text === 'string' &&
+    typeof value.evidence === 'string' && probability(value.confidence)
   const forecast = (value: unknown): boolean => object(value) &&
-    number(value.target_stop_id) && typeof value.target_stop_name === 'string' && date(value.target_time_plan) &&
+    integer(value.target_stop_id) && typeof value.target_stop_name === 'string' &&
+    date(value.target_time_plan) && date(value.issued_at) &&
+    integer(value.lead_s) && value.lead_s >= 600 && value.lead_s <= 900 &&
     number(value.delay_pred_s) && number(value.delay_q10_s) && number(value.delay_q90_s) &&
-    number(value.p_late) && ['green', 'yellow', 'red'].includes(String(value.risk)) &&
-    object(value.cause) && typeof value.cause.text === 'string' &&
-    typeof value.cause.evidence === 'string' && number(value.cause.confidence)
+    value.delay_q10_s <= value.delay_q90_s && probability(value.p_late) &&
+    risk(value.risk) && ['full', 'degraded', 'fallback'].includes(String(value.quality)) &&
+    cause(value.cause) && typeof value.model_version === 'string'
+  const recommendation = (value: unknown) => object(value) &&
+    typeof value.action === 'string' && typeof value.text === 'string' &&
+    optionalNumber(value.target_speed_kmh) && optionalNumber(value.hold_s) &&
+    (value.stop_id == null || integer(value.stop_id)) && optionalNumber(value.expected_delay_after_s)
   const vehicle = (value: unknown): boolean => object(value) &&
-    number(value.tr_id) && number(value.lat) && number(value.lon) &&
-    typeof value.stale === 'boolean' && number(value.last_seen_s) &&
+    integer(value.tr_id) && number(value.lat) && number(value.lon) &&
+    number(value.speed_kmh) && number(value.heading) &&
+    optionalNumber(value.cur_dev_s) && optionalNumber(value.seg_speed_kmh) && optionalNumber(value.dwell_s) &&
+    number(value.last_seen_s) && value.last_seen_s >= 0 &&
+    typeof value.stale === 'boolean' &&
+    (value.is_opening_or_closing_trip == null || typeof value.is_opening_or_closing_trip === 'boolean') &&
     (value.forecast == null || forecast(value.forecast))
   const alert = (value: unknown): boolean => object(value) &&
-    typeof value.alert_id === 'string' && number(value.tr_id) &&
-    number(value.priority) && typeof value.status === 'string' &&
-    forecast(value.forecast) &&
-    (value.recommendation == null || (object(value.recommendation) && typeof value.recommendation.text === 'string'))
+    typeof value.alert_id === 'string' && date(value.created_at) && integer(value.tr_id) &&
+    risk(value.risk) && integer(value.priority) && typeof value.title === 'string' &&
+    typeof value.status === 'string' && forecast(value.forecast) &&
+    (value.recommendation == null || recommendation(value.recommendation))
+  const status = (value: unknown) => object(value) &&
+    ['LIVE', 'DEGRADED', 'REPLAY'].includes(String(value.mode)) && date(value.sim_time) &&
+    number(value.replay_speed) && integer(value.ndtp_sessions) &&
+    number(value.last_packet_age_s) && typeof value.ml_core_ok === 'boolean' &&
+    typeof value.model_version === 'string'
 
   if (!object(raw) || !['snapshot', 'alert', 'status'].includes(String(raw.type)) || !date(raw.sim_time)) return null
-  if (raw.vehicles != null && (!Array.isArray(raw.vehicles) || !raw.vehicles.every(vehicle))) return null
-  if (raw.alerts != null && (!Array.isArray(raw.alerts) || !raw.alerts.every(alert))) return null
-  if (raw.status != null && (!object(raw.status) || !['LIVE', 'DEGRADED', 'REPLAY'].includes(String(raw.status.mode)))) return null
+  if (raw.vehicles != null && (!Array.isArray(raw.vehicles) || !raw.vehicles.every(vehicle) ||
+    new Set(raw.vehicles.map((item) => item.tr_id)).size !== raw.vehicles.length)) return null
+  if (raw.alerts != null && (!Array.isArray(raw.alerts) || !raw.alerts.every(alert) ||
+    new Set(raw.alerts.map((item) => item.alert_id)).size !== raw.alerts.length)) return null
+  if (raw.status != null && !status(raw.status)) return null
+  if (raw.status != null && contractTimeUs((raw.status as { sim_time: string }).sim_time) > contractTimeUs(raw.sim_time)) return null
+  const issuedInFuture = (item: { forecast?: { issued_at?: string } | null }) =>
+    item.forecast && contractTimeUs(item.forecast.issued_at ?? '') > contractTimeUs(raw.sim_time as string)
+  if (Array.isArray(raw.vehicles) && raw.vehicles.some(issuedInFuture)) return null
+  if (Array.isArray(raw.alerts) && raw.alerts.some(issuedInFuture)) return null
+  if (Array.isArray(raw.alerts) && raw.alerts.some((item) => contractTimeUs(item.created_at) > contractTimeUs(raw.sim_time as string))) return null
   return raw as unknown as WsMessage
 }

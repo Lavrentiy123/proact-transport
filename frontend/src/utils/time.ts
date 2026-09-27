@@ -1,10 +1,19 @@
 /** Dataset timestamps are timezone-free Moscow wall times. Use UTC arithmetic
  * on their components so the browser's local timezone cannot change durations. */
-export function contractTimeMs(value: string): number {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(value)
+export function contractTimeUs(value: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?$/.exec(value)
   if (!match) return Number.NaN
-  const [, y, m, d, h, min, s] = match.map(Number)
-  return Date.UTC(y, m - 1, d, h, min, s)
+  const [, y, m, d, h, min, s, fraction] = match
+  const wholeMilliseconds = Date.UTC(Number(y), Number(m) - 1, Number(d), Number(h), Number(min), Number(s))
+  const parsed = new Date(wholeMilliseconds)
+  if (parsed.getUTCFullYear() !== Number(y) || parsed.getUTCMonth() !== Number(m) - 1 ||
+    parsed.getUTCDate() !== Number(d) || parsed.getUTCHours() !== Number(h) ||
+    parsed.getUTCMinutes() !== Number(min) || parsed.getUTCSeconds() !== Number(s)) return Number.NaN
+  return wholeMilliseconds * 1000 + Number((fraction ?? '').padEnd(6, '0'))
+}
+
+export function contractTimeMs(value: string): number {
+  return contractTimeUs(value) / 1000
 }
 
 export function advanceContractTime(value: string, seconds: number): string {
