@@ -1,5 +1,5 @@
 /* The only place with colours and scales (PLAN.MD, appendix A). Everything else uses var(--…).
-   Colour tokens: 21 of the 24 allowed. */
+   Colour tokens: 22 of the 24 allowed (the popover shadow included). */
 :root {
   --bg-canvas: #0d0f11;
   --surface-1: #15181b;
