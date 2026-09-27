@@ -140,7 +140,31 @@ test.describe('цели этапа 3', () => {
     })
   }
 
-  test.fixme('S5: подписи диаграммы Марея не меньше 11 px', async () => {
-    // По аудиту подписи диаграммы 7–9 px; кегли меняет этап 3 (BL-22).
-  })
+  for (const [width, height] of [[1440, 900], [768, 1024], [375, 812]] as const) {
+    test(`S5: подписи диаграммы Марея не меньше 11 px на ${width} px`, async ({ page, stub }) => {
+      await page.setViewportSize({ width, height })
+      await stub.start()
+      await page.goto('/')
+      await expect(connectionPill(page, 'LIVE')).toBeVisible()
+      await vehiclePicker(page).selectOption('131672')
+      const chart = page.getByRole('region', { name: 'Диаграмма движения борта 131672' }).getByRole('img', { name: 'Линия плана, наблюдения и диапазон прогноза' })
+      await expect(chart).toBeVisible()
+      const metrics = await chart.evaluate((svg) => {
+        const scale = svg.getBoundingClientRect().width / (svg as SVGSVGElement).viewBox.baseVal.width
+        const sizes = [...svg.querySelectorAll('text')].map((text) => Number.parseFloat(getComputedStyle(text).fontSize) * scale)
+        const box = svg.getBoundingClientRect()
+        const clipped = [...svg.querySelectorAll('text')].filter((text) => {
+          const rect = text.getBoundingClientRect()
+          return rect.top < box.top - 1 || rect.bottom > box.bottom + 1 || rect.left < box.left - 1 || rect.right > box.right + 1
+        }).map((text) => text.textContent)
+        return { count: sizes.length, min: Math.min(...sizes), max: Math.max(...sizes), clipped,
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }
+      })
+      expect(metrics.count).toBeGreaterThan(3)
+      expect(metrics.min).toBeGreaterThanOrEqual(11)
+      expect(metrics.max).toBeLessThanOrEqual(12.5)
+      expect(metrics.clipped).toEqual([])
+      expect(metrics.overflow).toBeLessThanOrEqual(0)
+    })
+  }
 })
