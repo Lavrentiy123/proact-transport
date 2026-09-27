@@ -12,7 +12,8 @@ interface Props {
   selectedAlertId: string | null
   simTime: string
   loading: boolean
-  connected: boolean
+  /** live — data follows the stream, degraded — telemetry is lost and forecasts use the schedule, paused — no fresh frames. */
+  feed: 'live' | 'degraded' | 'paused'
   onSelect: (trId: number, alertId: string) => void
 }
 
@@ -29,7 +30,7 @@ function initialRiskFilter(): 'all' | 'red' | 'yellow' {
   } catch { return 'all' }
 }
 
-export default function AlertList({ alerts, vehicles, selectedTrId, selectedAlertId, simTime, loading, connected, onSelect }: Props) {
+export default function AlertList({ alerts, vehicles, selectedTrId, selectedAlertId, simTime, loading, feed, onSelect }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [riskFilter, setRiskFilter] = useState<'all' | 'red' | 'yellow'>(initialRiskFilter)
   const [query, setQuery] = useState('')
@@ -90,7 +91,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
                 className={`alert-item risk-${alert.risk}${selected ? ' selected' : ''}`}
                 onClick={() => onSelect(alert.tr_id, alert.alert_id)}
                 aria-pressed={selected}
-                aria-label={`Событие ${alert.alert_id}: борт ${alert.tr_id}, ${alert.risk === 'red' ? 'критично' : alert.risk === 'yellow' ? 'внимание' : 'в графике'}, ${formatDelay(alert.forecast.delay_pred_s)} к ${alert.forecast.target_stop_name}, создано ${displayClock(alert.created_at)}`}
+                aria-label={`Событие ${alert.alert_id}: борт ${alert.tr_id}, ${alert.risk === 'red' ? 'критично' : alert.risk === 'yellow' ? 'внимание' : 'в графике'}, ${formatDelay(alert.forecast.delay_pred_s)} к ${stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}, создано ${displayClock(alert.created_at)}`}
               >
                 <div className="alert-item-top">
                   <span className={`risk-indicator risk-${alert.risk}`}>{alert.risk === 'red' ? <TriangleAlert size={13} /> : <ArrowUpRight size={13} />}</span>
@@ -106,7 +107,7 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
           {riskFilter === 'all' && query.trim() === '' && filtered.length > 7 && <button className="alerts-more" type="button" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Свернуть список' : `Показать все · ещё ${filtered.length - 7} ${alertWord(filtered.length - 7)}`}</button>}
         </div>
       )}
-      <div className="panel-footer"><span className={`live-dot${connected ? '' : ' is-paused'}`} />{connected ? 'Лента обновляется вслед за потоком' : 'Лента не обновляется: нет свежих данных'}<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
+      <div className="panel-footer"><span className={`live-dot${feed === 'live' ? '' : feed === 'degraded' ? ' is-degraded' : ' is-paused'}`} />{feed === 'live' ? 'Лента обновляется вслед за потоком' : feed === 'degraded' ? 'Телеметрии нет: прогнозы по расписанию' : 'Лента не обновляется: нет свежих данных'}<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
     </aside>
   )
 }

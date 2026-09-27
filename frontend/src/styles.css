@@ -36,14 +36,14 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .header-time { gap: 7px; font-variant-numeric: tabular-nums; font-weight: 720; font-size: 17px; }
 .header-time svg { color: #e5b369; }
 .header-time span, .header-day { color: #8799a4; font-size: 11px; font-weight: 600; letter-spacing: .05em; }
-.summary-row { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding: 12px 0; }
+.summary-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px 20px; padding: 12px 0; }
 .eyebrow { color: #9db5bf; font-size: 11px; font-weight: 680; letter-spacing: .01em; }
 .summary-intro { display: flex; flex-direction: column; gap: 5px; }
 .summary-intro strong { font-size: clamp(22px, 2vw, 28px); line-height: 1.1; letter-spacing: -.035em; }
 .summary-caption { color: #92a6b2; font-size: 12px; }
-.summary-metrics { display: flex; align-items: stretch; background: #13212c; border: 1px solid var(--line); border-radius: 9px; }
-.summary-metric { min-width: 114px; gap: 10px; padding: 12px 16px; border-right: 1px solid var(--line); color: #86abba; }
-.summary-metric:last-child { border-right: 0; }
+/* Tiles are separated by 1px gaps over the line colour, so 4 or 6 tiles can wrap without broken borders. */
+.summary-metrics { display: flex; flex-wrap: wrap; align-items: stretch; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.summary-metric { flex: 1 0 auto; min-width: 114px; gap: 10px; padding: 12px 16px; background: #13212c; color: #86abba; }
 .summary-metric span:not(.metric-dot) { display: flex; flex-direction: column; }
 .summary-metric strong { font-size: 22px; color: #eef6f7; line-height: 1; font-variant-numeric: tabular-nums; }
 .summary-metric small { font-size: 12px; color: #a7bac4; margin-top: 3px; white-space: nowrap; }
@@ -118,6 +118,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .mobile-map-jump { display: none; }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #5fd2ae; }
 .live-dot.is-paused { background: #91a6b2; }
+.live-dot.is-degraded { background: var(--yellow); }
 .empty-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 25px; color: #839aa6; }
 .empty-panel strong { color: #d8e5e9; font-size: 14px; }
 .empty-panel span { font-size: 11px; line-height: 1.5; }
@@ -134,12 +135,12 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .map-vehicle-picker select { min-width: 78px; max-width: 105px; color: #e5edf2; background: #0e1b24; border: 1px solid #3a4d57; border-radius: 3px; padding: 3px; font-size: 12px; }
 .map-offline-label { color: #b3c7cf; background: #152c37e6; border: 1px solid #4b6672; border-radius: 4px; padding: 7px 9px; font-size: 12px; }
 .map-location-label { bottom: 110px; left: 18px; display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 800; letter-spacing: .12em; color: #89a9b7; }
-.map-legend { bottom: 65px; left: 18px; display: flex; flex-wrap: wrap; gap: 7px 15px; max-width: calc(100% - 36px); background: #12232ee6; border: 1px solid #3c5966; border-radius: 5px; padding: 9px 11px; }
+.map-legend { bottom: 65px; left: 18px; display: flex; flex-wrap: wrap; gap: 7px 15px; max-width: calc(100% - 84px); background: #12232ee6; border: 1px solid #3c5966; border-radius: 5px; padding: 9px 11px; }
 .map-legend span { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #d8e5ea; }
 .map-legend .map-cluster-legend { color: #a7c4ce; }
 .legend-dot { width: 8px; height: 8px; }
 .legend-red { background: var(--red); }.legend-yellow { background: var(--yellow); }.legend-green { background: var(--green); }
-.map-route-hint { bottom: 65px; right: 18px; display: flex; align-items: center; gap: 6px; color: #b4cbd3; background: #12232ee6; border: 1px solid #3c5966; border-radius: 5px; padding: 9px; font-size: 10px; }
+.map-route-hint { bottom: 65px; right: 56px; display: flex; align-items: center; gap: 6px; color: #b4cbd3; background: #12232ee6; border: 1px solid #3c5966; border-radius: 5px; padding: 9px; font-size: 10px; }
 .map-count { bottom: 145px; left: 18px; max-width: calc(100% - 36px); color: #d7e8ed; background: #12232ef0; border: 1px solid #3c5966; border-radius: 5px; padding: 7px 9px; font-size: 11px; line-height: 1.4; }
 .map-count span { color: #f6cc86; }
 .map-overlap-list { position: absolute; z-index: 4; bottom: 140px; right: 18px; display: grid; gap: 9px; width: min(300px, calc(100% - 36px)); max-height: 50%; overflow-y: auto; padding: 12px; border: 1px solid #7795a1; border-radius: 6px; background: #152a36f5; box-shadow: 0 8px 25px #0009; font-size: 12px; }
@@ -205,7 +206,6 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .marey-footnote { color: #718c99; font-size: 10px; margin-left: 70px; }
 .dashboard-footer { display: flex; justify-content: space-between; padding: 13px 2px; color: #647d8a; font-size: 10px; }
 /* MapLibre CSS arrives later with the lazy map chunk; these selectors must outrank it. */
-.map-panel .maplibregl-ctrl-bottom-right { bottom: 68px; right: 12px; }
 .map-panel .maplibregl-ctrl-group, .map-panel .maplibregl-ctrl-group:not(:empty) { background: #213844; border: 1px solid #526e7a; box-shadow: none; }
 .map-panel .maplibregl-ctrl-group button + button { border-top-color: #526e7a; }
 .map-panel .maplibregl-ctrl-group button span { filter: invert(1); }
@@ -229,7 +229,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .incident-panel { grid-column: 2; grid-row: 2; max-height: 520px; }
   .summary-row { align-items: start; flex-direction: column; }
   .summary-metrics { width: 100%; }
-  .summary-metric { flex: 1; }
+  .summary-metric { flex: 1 1 150px; min-width: 0; }
+  .summary-metric small { white-space: normal; }
   .marey-heading { align-items: flex-start; flex-direction: column; }
 }
 @media (max-width: 640px) {
@@ -238,9 +239,6 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .topbar-right { width: 100%; justify-content: space-between; gap: 7px; }
   .header-day { display: none; }
   .summary-row { padding: 20px 0; }
-  .summary-metrics { display: grid; grid-template-columns: 1fr 1fr; }
-  .summary-metric:nth-child(2) { border-right: 0; }
-  .summary-metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .demo-toolbar { flex-direction: column; align-items: stretch; }
   .toolbar-controls { flex-wrap: wrap; }
   .connection-details > div { left: 0; right: auto; }
@@ -248,7 +246,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .map-panel { order: 2; min-height: 390px; }
   .alerts-panel { order: 1; min-height: 0; height: 390px; max-height: 390px; }
   .incident-panel { order: 3; max-height: none; }
-  .map-legend { left: 10px; gap: 4px 8px; max-width: calc(100% - 20px); padding: 7px 8px; }
+  .map-legend { left: 10px; gap: 4px 8px; max-width: calc(100% - 58px); padding: 7px 8px; }
   .map-legend .map-cluster-legend { display: none; }
   .map-topline { top: 10px; left: 10px; right: 10px; }
   .map-topline > span:first-child { display: none; }

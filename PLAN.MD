@@ -194,7 +194,7 @@ function selectVehicle(trId: number) {
 | `npm run typecheck`, `npm run test:contracts`, `npm run build` | Код 0 |
 | CI `.github/workflows/frontend.yml` | Зелёный, включая Docker smoke |
 | `docker compose up --build` из объединённой ветки (стенд Расцова) | `/` показывает живые борта ≤ 5 с после старта; счётчики ≠ «—» |
-| `STUB_CASE=status-skew` и `STUB_CASE=rewind` | Кадры принимаются; после перемотки время на экране — 07:00, статус LIVE |
+| `STUB_CASE=status-skew` и `STUB_CASE=rewind` | Кадры принимаются; после перемотки время на экране уходит назад на величину перемотки (stub — на 1 ч, стенд — к `start_at`), статус LIVE |
 | Выбор борта с карты | Рекомендация видна (BL-04) |
 | `/?source=demo` | Демо по `DEMO_SCRIPT.md` проходит без расхождений |
 

@@ -103,6 +103,26 @@ const server = http.createServer((request, response) => {
   if (path === '/api/v1/vehicles') return sendJson(response, 200, base.vehicles)
   if (path === '/api/v1/alerts') return sendJson(response, 200, base.alerts)
   if (path === '/api/v1/system/status') return sendJson(response, 200, base.status)
+  if (path === '/api/v1/metrics/horizon') {
+    return sendJson(response, 200, { forecasts_total: 120 + tick, share_lead_in_window: 1, resolved_total: 0, online_mae_model_s: null, online_mae_baseline_s: null })
+  }
+  if (path === '/api/v1/actions' && request.method === 'POST') {
+    let body = ''
+    request.on('data', (chunk) => { body += chunk })
+    request.on('end', () => {
+      let decision
+      try { decision = JSON.parse(body) } catch { return sendJson(response, 422, { detail: 'invalid JSON' }) }
+      const target = latestSnapshot.alerts?.find((item) => item.alert_id === decision?.alert_id && item.status === 'active')
+      if (!target || !['apply', 'dismiss'].includes(decision.action)) return sendJson(response, 409, { detail: 'alert is not active' })
+      sendJson(response, 200, {
+        alert_id: target.alert_id,
+        status: decision.action === 'apply' ? 'applied' : 'dismissed',
+        driver_message: decision.action === 'apply' ? `Диспетчер: ${target.recommendation?.text ?? 'сообщите обстановку'}` : 'Алерт отклонён диспетчером',
+        driver_reply: decision.action === 'apply' ? 'успеваю' : null,
+      })
+    })
+    return
+  }
   const match = /^\/api\/v1\/tracks\/(\d+)$/.exec(path)
   if (match) {
     const trId = Number(match[1])

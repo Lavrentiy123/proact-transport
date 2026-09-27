@@ -281,6 +281,9 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       setBasemapStatus('offline')
       map.setStyle(offlineStyle, { diff: false })
     }
+    // A remote style that never arrives (slow VPN, blocked host) must not leave the
+    // map without vehicles and routes: the local schematic takes over.
+    const styleTimer = offline ? null : setTimeout(() => { if (!styleLoaded) useOfflineStyle() }, 8000)
     map.on('style.load', () => {
       styleLoaded = true
       if (!offline) {
@@ -333,6 +336,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
     mapRef.current = map
     return () => {
       if (tileCheckTimer) clearTimeout(tileCheckTimer)
+      if (styleTimer) clearTimeout(styleTimer)
       sizeObserver?.disconnect()
       window.removeEventListener('resize', handleResize)
       container.removeEventListener('pointerdown', markUserMoved)

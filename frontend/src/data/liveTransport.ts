@@ -10,6 +10,8 @@ export const emptyLiveFieldTimes = (): LiveFieldTimes => ({ vehicles: Number.NEG
 
 /** A full snapshot this far behind the accepted positions is a replay rewind, not a late frame. */
 const REWIND_THRESHOLD_US = 60_000_000
+/** POST /replay/control can also jump ahead; the backend then resets alerts and forecasts. */
+const FORWARD_JUMP_US = 300_000_000
 
 export function isVehicleSnapshot(message: WsMessage): boolean {
   return message.type === 'snapshot' && message.vehicles != null
@@ -19,6 +21,12 @@ export function isVehicleSnapshot(message: WsMessage): boolean {
 export function isRewind(message: WsMessage, times: LiveFieldTimes): boolean {
   return isVehicleSnapshot(message) && Number.isFinite(times.vehicles) &&
     contractTimeUs(message.sim_time) < times.vehicles - REWIND_THRESHOLD_US
+}
+
+/** Any replay clock move that makes the backend reset its session state. */
+export function isClockJump(message: WsMessage, times: LiveFieldTimes): boolean {
+  return isRewind(message, times) || (isVehicleSnapshot(message) && Number.isFinite(times.vehicles) &&
+    contractTimeUs(message.sim_time) > times.vehicles + FORWARD_JUMP_US)
 }
 
 /** A new WebSocket session can restart its simulation clock. The first frame

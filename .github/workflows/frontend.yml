@@ -39,7 +39,10 @@ jobs:
           docker network create proact-transport-smoke
           docker run -d --name proact-transport-backend-smoke --network proact-transport-smoke --network-alias backend --mount "type=bind,source=$PWD,target=/app,readonly" --workdir /app node:24-alpine node scripts/mock-backend.mjs
           docker run -d --name proact-transport-frontend-smoke --network proact-transport-smoke -p 3000:3000 proact-transport-frontend-smoke
-          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://localhost:3000/health
+          # docker-proxy accepts the port before nginx listens, so early attempts end with a reset (curl 56), not a refusal.
+          curl --retry 30 --retry-all-errors --retry-delay 1 -fsS http://localhost:3000/health
+          # The stub backend container may still be starting; wait until nginx can reach it.
+          curl --retry 30 --retry-all-errors --retry-delay 1 -fsS -o /dev/null http://localhost:3000/api/v1/vehicles
           curl -fsS http://localhost:3000/ | grep -q '<div id="root"></div>'
           node scripts/proxy-smoke.mjs
       - name: Remove smoke container

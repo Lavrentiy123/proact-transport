@@ -115,8 +115,8 @@ export interface ActionResponse {
   driver_reply: string | null
 }
 
-/** Backend computes status after vehicles and alerts on a running clock, so at
- * REPLAY_SPEED=10 its sim_time is milliseconds ahead of the frame time. */
+/** Backend computes status after vehicles and alerts on a running clock, so its
+ * sim_time runs ahead of the frame time; allow two seconds of wall time. */
 const STATUS_CLOCK_SKEW_US = 2_000_000
 
 /** Reject malformed live frames before they reach rendering components. */
@@ -170,12 +170,21 @@ export function parseWsMessage(raw: unknown): WsMessage | null {
   if (raw.alerts != null && (!Array.isArray(raw.alerts) || !raw.alerts.every(alert) ||
     new Set(raw.alerts.map((item) => item.alert_id)).size !== raw.alerts.length)) return null
   if (raw.status != null && !status(raw.status)) return null
-  if (raw.status != null &&
-    contractTimeUs((raw.status as { sim_time: string }).sim_time) - contractTimeUs(raw.sim_time) > STATUS_CLOCK_SKEW_US) return null
-  const issuedInFuture = (item: { forecast?: { issued_at?: string } | null }) =>
-    item.forecast && contractTimeUs(item.forecast.issued_at ?? '') > contractTimeUs(raw.sim_time as string)
-  if (Array.isArray(raw.vehicles) && raw.vehicles.some(issuedInFuture)) return null
-  if (Array.isArray(raw.alerts) && raw.alerts.some(issuedInFuture)) return null
-  if (Array.isArray(raw.alerts) && raw.alerts.some((item) => contractTimeUs(item.created_at) > contractTimeUs(raw.sim_time as string))) return null
-  return raw as unknown as WsMessage
+  const frameTime = contractTimeUs(raw.sim_time)
+  if (raw.status != null) {
+    const frameStatus = raw.status as { sim_time: string; replay_speed: number }
+    // The allowance is wall time: at ×10 two seconds are twenty simulated seconds.
+    const allowedSkewUs = Math.max(1, frameStatus.replay_speed) * STATUS_CLOCK_SKEW_US
+    if (contractTimeUs(frameStatus.sim_time) - frameTime > allowedSkewUs) return null
+  }
+  // A record stamped after its frame (a backend race around a replay rewind) is
+  // dropped on its own, so one inconsistent alert cannot blank the whole screen.
+  const future = (value: string | undefined) => contractTimeUs(value ?? '') > frameTime
+  const vehicles = Array.isArray(raw.vehicles)
+    ? raw.vehicles.map((item) => item.forecast && future(item.forecast.issued_at) ? { ...item, forecast: null } : item)
+    : raw.vehicles
+  const alerts = Array.isArray(raw.alerts)
+    ? raw.alerts.filter((item) => !future(item.created_at) && !future(item.forecast?.issued_at))
+    : raw.alerts
+  return { ...raw, vehicles, alerts } as unknown as WsMessage
 }

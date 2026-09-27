@@ -11,8 +11,8 @@ const vite = await createServer({
 
 try {
   const { parseWsMessage } = await vite.ssrLoadModule('/src/types/contracts.ts')
-  const { mergeLiveFrame, mergeWsMessage, emptyLiveFieldTimes, emptyLiveSnapshot, vehicleLagSeconds, fetchTrack, isRewind, isVehicleSnapshot, startLiveEpoch } = await vite.ssrLoadModule('/src/data/liveTransport.ts')
-  const { trackAtTime } = await vite.ssrLoadModule('/src/utils/track.ts')
+  const { mergeLiveFrame, mergeWsMessage, emptyLiveFieldTimes, emptyLiveSnapshot, vehicleLagSeconds, fetchTrack, isClockJump, isRewind, isVehicleSnapshot, startLiveEpoch } = await vite.ssrLoadModule('/src/data/liveTransport.ts')
+  const { planTimesOrdered, trackAtTime } = await vite.ssrLoadModule('/src/utils/track.ts')
   const { describeDelay } = await vite.ssrLoadModule('/src/utils/format.ts')
   const { selectedAlert, forecastForSelection, selectionPresent, topActiveAlert } = await vite.ssrLoadModule('/src/utils/selection.ts')
   const base = JSON.parse(readFileSync(new URL('../src/data/snapshot.json', import.meta.url), 'utf8'))
@@ -32,13 +32,16 @@ try {
   assert.equal(parseWsMessage(invalidProbability), null, 'probability beyond 0..1 rejects frame')
   const futureForecast = copy(base)
   futureForecast.vehicles[0].forecast.issued_at = '2026-01-06T13:00:00'
-  assert.equal(parseWsMessage(futureForecast), null, 'future vehicle forecast rejects frame')
+  const withoutFutureForecast = parseWsMessage(futureForecast)
+  assert.ok(withoutFutureForecast, 'future vehicle forecast does not reject the frame')
+  assert.equal(withoutFutureForecast.vehicles[0].forecast, null, 'future vehicle forecast is dropped')
+  assert.equal(withoutFutureForecast.vehicles.length, base.vehicles.length, 'vehicle with a dropped forecast keeps its position')
   const futureAlert = copy(base)
   futureAlert.alerts[0].created_at = '2026-01-06T13:00:00'
-  assert.equal(parseWsMessage(futureAlert), null, 'future alert rejects frame')
+  assert.equal(parseWsMessage(futureAlert).alerts.length, base.alerts.length - 1, 'future alert is dropped, the frame stays')
   const futureAlertForecast = copy(base)
   futureAlertForecast.alerts[0].forecast.issued_at = '2026-01-06T13:00:00'
-  assert.equal(parseWsMessage(futureAlertForecast), null, 'future forecast nested in alert rejects frame')
+  assert.equal(parseWsMessage(futureAlertForecast).alerts.length, base.alerts.length - 1, 'alert with a future forecast is dropped, the frame stays')
   const futureStatus = copy(base)
   futureStatus.status.sim_time = '2026-01-06T13:00:00'
   assert.equal(parseWsMessage(futureStatus), null, 'future nested system status rejects frame')
@@ -46,7 +49,15 @@ try {
   skewedStatus.status.sim_time = '2026-01-06T12:40:00.020000'
   assert.ok(parseWsMessage(skewedStatus), 'status computed milliseconds after the frame on a running clock is accepted')
   skewedStatus.status.sim_time = '2026-01-06T12:40:05'
-  assert.equal(parseWsMessage(skewedStatus), null, 'status seconds ahead of the frame still rejects it')
+  assert.ok(parseWsMessage(skewedStatus), 'at ×5 five simulated seconds are within two seconds of wall time')
+  skewedStatus.status.sim_time = '2026-01-06T12:40:30'
+  assert.equal(parseWsMessage(skewedStatus), null, 'status far ahead of the frame still rejects it')
+  skewedStatus.status.replay_speed = 1
+  skewedStatus.status.sim_time = '2026-01-06T12:40:03'
+  assert.equal(parseWsMessage(skewedStatus), null, 'at ×1 the allowance is two simulated seconds')
+  const realFrame = JSON.parse(readFileSync(new URL('./fixtures/ws_live_real.json', import.meta.url), 'utf8'))
+  assert.ok(realFrame.status.sim_time > realFrame.sim_time, 'real backend frame has its status computed after the frame time')
+  assert.ok(parseWsMessage(realFrame), 'real backend frame is accepted')
   const precise = copy(base)
   precise.sim_time = '2026-01-06T12:40:00.123456'
   assert.ok(parseWsMessage(precise), 'microsecond ISO timestamp parses')
@@ -87,6 +98,9 @@ try {
   assert.equal(isRewind({ ...base, sim_time: '2026-01-06T12:44:30' }, oldSession.times), false, 'frame less than a minute late is not a rewind')
   assert.equal(isRewind({ type: 'status', sim_time: base.sim_time, status: base.status }, oldSession.times), false, 'partial frame cannot trigger a rewind')
   assert.equal(isRewind(base, emptyLiveFieldTimes()), false, 'first frame of a session is not a rewind')
+  assert.equal(isClockJump(base, oldSession.times), true, 'rewind is a clock jump')
+  assert.equal(isClockJump({ ...base, sim_time: '2026-01-06T12:45:10' }, oldSession.times), false, 'regular replay step is not a clock jump')
+  assert.equal(isClockJump({ ...base, sim_time: '2026-01-06T12:51:00' }, oldSession.times), true, 'replay/control jump ahead starts a new epoch')
   const afterRewind = startLiveEpoch(base)
   assert.equal(afterRewind.acceptedVehicles, true, 'rewound replay frame replaces positions')
   assert.equal(afterRewind.snapshot.sim_time, base.sim_time, 'rewound replay frame resets the display clock')
@@ -139,6 +153,9 @@ try {
   } finally {
     globalThis.fetch = originalFetch
   }
+  assert.equal(planTimesOrdered([1, 2, 2, 3]), true, 'stops sharing a minute-precision plan time keep the Marey chart')
+  assert.equal(planTimesOrdered([1, 3, 2]), false, 'decreasing plan times are rejected')
+  assert.equal(planTimesOrdered([1, Number.NaN]), false, 'unparsed plan time is rejected')
   assert.equal(describeDelay(-60), 'Опережение 1:00')
   assert.equal(describeDelay(60), 'Опоздание 1:00')
   assert.equal(describeDelay(0), 'По графику')
