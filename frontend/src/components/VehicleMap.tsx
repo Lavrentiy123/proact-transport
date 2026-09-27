@@ -176,7 +176,8 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     if (!feature || feature.geometry.type !== 'Point' || !Number.isFinite(clusterId)) return
     try {
       const zoom = await (map.getSource('vehicles') as GeoJSONSource).getClusterExpansionZoom(clusterId)
-      map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom })
+      const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : undefined
+      map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom, duration })
     } catch { /* The style may have changed while the expansion was calculated. */ }
   })
   map.on('click', 'vehicles-icon', (event) => {
