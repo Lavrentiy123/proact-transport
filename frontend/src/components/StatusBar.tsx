@@ -2,9 +2,10 @@ import { Activity, BusFront, Clock3, Pause, Play, RotateCcw, Target, TriangleAle
 import type { Scenario } from '../data/scenarios'
 import type { ConnectionState } from '../data/liveTransport'
 import type { HorizonMetrics, WsMessage } from '../types/contracts'
+import { ALERT_FORMS, plural } from '../utils/format'
 import { displayClock, displayDay } from '../utils/time'
 import { RISK } from '../theme/risk'
-import { Button, RiskMark, StatusDot, StatusPill, type StatusState } from '../ui'
+import { Button, RiskMark, StatusPill, type StatusState } from '../ui'
 
 interface Props {
   snapshot: WsMessage
@@ -33,6 +34,8 @@ interface Props {
 /** Онлайн-ошибка на первых десятках сверенных прогнозов шумная (старт дня, перемотка) — показываем с этого числа. */
 const MIN_RESOLVED = 200
 
+const debugMode = () => new URLSearchParams(window.location.search).get('debug') === '1'
+
 export default function StatusBar({
   snapshot, connected, source, liveConnection, liveStalled, hasVehicleSnapshot, hasAlertSnapshot, lastVehicleFrameAt, wallNow, liveTimeLagS, droppedFrames, lastDropReason, scenario, playing, onScenarioChange,
   onTogglePlayback, onRestart, onSourceChange, horizon,
@@ -51,71 +54,55 @@ export default function StatusBar({
   const pillState: StatusState = connected ? degraded ? 'degraded' : source === 'demo' ? 'demo' : 'live'
     : offline ? 'offline' : !connecting && liveStalled ? 'stale' : 'waiting'
   const pillText = connected ? degraded ? 'ДЕГРАДАЦИЯ' : mode : offline ? 'НЕТ СВЯЗИ' : connecting ? 'ПОДКЛЮЧЕНИЕ' : liveStalled ? 'ДАННЫЕ УСТАРЕЛИ' : waiting ? 'ОЖИДАНИЕ ДАННЫХ' : 'НЕТ СВЯЗИ'
-  const dotState: StatusState = source === 'demo' ? connected ? 'demo' : 'offline'
-    : connected ? degraded ? 'degraded' : 'live' : liveConnection === 'disconnected' ? 'offline' : liveStalled ? 'stale' : 'waiting'
+  const sourceNote = source === 'demo' ? 'Демонстрационная версия: синтетический маршрут, прогноз из контрактного примера' : 'Живой поток: источник данных определяется подключённым сервером'
+  const pillTitle = degraded ? `Пакетов NDTP нет дольше 15 с: прогноз по расписанию. ${sourceNote}` : sourceNote
+  const alertCount = hasAlertSnapshot ? alerts.length : null
 
   return (
-    <>
-      <header className="topbar">
-        <div className="brand-block">
-          <div className="brand-mark"><Activity size={25} strokeWidth={2.5} /></div>
-          <div>
-            <div className="brand-name">ПроАкт<span>.Транспорт</span></div>
-            <div className="brand-subtitle">Оперативный центр движения</div>
-          </div>
-        </div>
-        <div className="topbar-right">
-          <StatusPill state={pillState} className="mode-pill" title={degraded ? 'Пакетов NDTP нет дольше 15 с: прогноз по расписанию' : undefined}
-            icon={degraded ? <TriangleAlert size={14} /> : connected ? <Wifi size={14} /> : <WifiOff size={14} />}>{pillText}</StatusPill>
-          <div className="header-time"><Clock3 size={17} /> {displayClock(snapshot.sim_time)} <span>МСК</span></div>
-          <div className="header-day">{displayDay(snapshot.sim_time)}</div>
-        </div>
-      </header>
+    <header className="topbar">
+      <div className="brand-block">
+        <div className="brand-mark" aria-hidden="true"><Activity size={18} strokeWidth={2.5} /></div>
+        <div className="brand-name">ПроАкт<span>.Транспорт</span></div>
+      </div>
+      <StatusPill state={pillState} className="mode-pill" title={pillTitle}
+        icon={degraded ? <TriangleAlert size={14} /> : connected ? <Wifi size={14} /> : <WifiOff size={14} />}>{pillText}</StatusPill>
+      {source === 'demo' && <span className="source-note" title={sourceNote}>демо · синтетический маршрут</span>}
+      <div className="header-time" title={displayDay(snapshot.sim_time)}><Clock3 size={15} /> {displayClock(snapshot.sim_time)} <span>МСК</span></div>
 
-      <section className="summary-row" aria-label="Состояние движения">
-        <div className="summary-intro">
-          <span className="ui-eyebrow">Мониторинг маршрутов</span>
-          <strong>Контроль движения</strong>
-          <span className="summary-caption">Прогноз отклонений за 10–15 минут</span>
-        </div>
-        <div className="summary-metrics">
-          <div className="summary-metric"><BusFront size={19} /><span><strong>{count(vehicles.length)}</strong><small>{source === 'demo' ? 'в демо-снимке' : connected ? 'в потоке' : 'в последнем снимке'}</small></span></div>
-          <div className="summary-metric metric-red"><RiskMark variant="marker" risk="red" /><span><strong>{count(red)}</strong><small>{RISK.red.label.toLowerCase()}</small></span></div>
-          <div className="summary-metric metric-yellow"><RiskMark variant="marker" risk="yellow" /><span><strong>{count(yellow)}</strong><small>{RISK.yellow.label.toLowerCase()}</small></span></div>
-          <div className="summary-metric"><Activity size={19} /><span><strong>{hasAlertSnapshot ? alerts.length : '—'}</strong><small>алертов</small></span></div>
-          {source === 'live' && horizon && <div className="summary-metric metric-horizon" title={`Сверено с фактическим прибытием: ${horizon.resolved_total} из ${horizon.forecasts_total}`}>
-            <Target size={19} /><span><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'прогнозов за 10–15 мин' : 'прогнозов пока нет'}</small></span></div>}
-          {source === 'live' && horizon && horizon.forecasts_total > 0 && (horizon.online_mae_model_s != null && horizon.resolved_total >= MIN_RESOLVED
-            ? <div className="summary-metric metric-horizon" title={`Онлайн-MAE по журналу прогнозов потока: ${horizon.resolved_total} прогнозов сверены с фактическим прибытием`}>
-              <span><strong>{Math.round(horizon.online_mae_model_s)} с</strong><small>ошибка прогноза{horizon.online_mae_baseline_s != null ? ` · бейзлайн ${Math.round(horizon.online_mae_baseline_s)} с` : ''}</small></span></div>
-            : <div className="summary-metric metric-horizon" title="Ошибку показываем, когда с фактом сверено достаточно прогнозов: первые минуты после старта или перемотки шумные">
-              <span><strong>—</strong><small>ошибка: сверено {horizon.resolved_total} из {MIN_RESOLVED}</small></span></div>)}
-        </div>
+      <section className="header-counters" aria-label="Состояние движения">
+        <span className="header-counter"><BusFront size={15} /><strong>{count(vehicles.length)}</strong><small>{source === 'demo' ? 'в демо-снимке' : connected ? 'в потоке' : 'в последнем снимке'}</small></span>
+        <span className="header-counter metric-red"><RiskMark variant="marker" risk="red" /><strong>{count(red)}</strong><small>{RISK.red.label.toLowerCase()}</small></span>
+        <span className="header-counter metric-yellow"><RiskMark variant="marker" risk="yellow" /><strong>{count(yellow)}</strong><small>{RISK.yellow.label.toLowerCase()}</small></span>
+        <span className="header-counter"><strong>{alertCount ?? '—'}</strong><small>{alertCount == null ? 'предупреждений' : plural(alertCount, ALERT_FORMS)}</small></span>
+        {source === 'live' && horizon && <span className="header-counter metric-horizon" title={`Доля прогнозов с горизонтом 10–15 мин. Сверено с фактическим прибытием: ${horizon.resolved_total} из ${horizon.forecasts_total}`}>
+          <Target size={15} /><strong>{horizon.forecasts_total > 0 ? `${Math.round(horizon.share_lead_in_window * 100)}%` : '—'}</strong><small>{horizon.forecasts_total > 0 ? 'за 10–15 мин' : 'прогнозов нет'}</small></span>}
+        {source === 'live' && horizon && horizon.forecasts_total > 0 && (horizon.online_mae_model_s != null && horizon.resolved_total >= MIN_RESOLVED
+          ? <span className="header-counter metric-horizon" title={`Онлайн-MAE по журналу прогнозов потока: ${horizon.resolved_total} прогнозов сверены с фактическим прибытием${horizon.online_mae_baseline_s != null ? `; бейзлайн ${Math.round(horizon.online_mae_baseline_s)} с` : ''}`}>
+            <strong>{Math.round(horizon.online_mae_model_s)} с</strong><small>ошибка</small></span>
+          : <span className="header-counter metric-horizon" title={`Ошибку показываем, когда с фактом сверено достаточно прогнозов: сверено ${horizon.resolved_total} из ${MIN_RESOLVED}`}>
+            <strong>—</strong><small>ошибка</small></span>)}
       </section>
 
-      <section className="demo-toolbar" aria-label="Управление источником данных">
-        <div className="demo-toolbar-label"><StatusDot state={dotState} className="demo-dot" />{source === 'demo' ? 'Демо-сценарий' : degraded ? 'Поток в деградации' : connected ? 'Поток подключён' : offline ? 'Нет связи с потоком' : connecting ? 'Подключение к потоку' : liveStalled ? 'Данные устарели' : 'Ожидаем снимок'}</div>
-        <div className="toolbar-controls">
-          <label className="toolbar-select-label" htmlFor="source-select">Источник</label>
-          <select id="source-select" value={source} onChange={(event) => onSourceChange(event.target.value as 'demo' | 'live')}>
-            <option value="demo">Демо-сценарий</option>
-            <option value="live">Живой поток</option>
-          </select>
-          {source === 'demo' && (
-            <>
-              <label className="toolbar-select-label" htmlFor="scenario-select">Сценарий</label>
-              <select id="scenario-select" value={scenario} onChange={(event) => onScenarioChange(event.target.value as Scenario)}>
-                <option value="normal">Обычный поток</option>
-                <option value="many">Пик алертов</option>
-                <option value="empty">Нет данных</option>
-                <option value="disconnected">Потеря связи</option>
-              </select>
-              <Button variant="icon" onClick={onTogglePlayback} aria-label={playing ? 'Пауза' : 'Продолжить'} icon={playing ? <Pause size={16} /> : <Play size={16} />} />
-              <Button variant="icon" onClick={onRestart} aria-label="Начать заново" icon={<RotateCcw size={16} />} />
-              <span className="playback-speed">×{snapshot.status?.replay_speed ?? 1}</span>
-            </>
-          )}
-        </div>
+      <section className="header-controls" aria-label="Управление источником данных">
+        <label className="sr-only" htmlFor="source-select">Источник</label>
+        <select id="source-select" value={source} onChange={(event) => onSourceChange(event.target.value as 'demo' | 'live')}>
+          <option value="demo">Демо-сценарий</option>
+          <option value="live">Живой поток</option>
+        </select>
+        {source === 'demo' && (
+          <>
+            <label className="sr-only" htmlFor="scenario-select">Сценарий</label>
+            <select id="scenario-select" value={scenario} onChange={(event) => onScenarioChange(event.target.value as Scenario)}>
+              <option value="normal">Обычный поток</option>
+              <option value="many">Пик алертов</option>
+              <option value="empty">Нет данных</option>
+              <option value="disconnected">Потеря связи</option>
+            </select>
+            <Button variant="icon" onClick={onTogglePlayback} aria-label={playing ? 'Пауза' : 'Продолжить'} icon={playing ? <Pause size={16} /> : <Play size={16} />} />
+            <Button variant="icon" onClick={onRestart} aria-label="Начать заново" icon={<RotateCcw size={16} />} />
+            <span className="playback-speed">×{snapshot.status?.replay_speed ?? 1}</span>
+          </>
+        )}
         {source === 'live' && <details className="connection-details"><summary>Диагностика</summary><div>
           <span>WebSocket: {liveConnection === 'connected' ? 'соединён' : liveConnection === 'connecting' ? 'подключается' : 'отключён'}</span>
           <span>Снимок бортов: {lastVehicleFrameAt == null ? 'ещё не получен' : `${Math.max(0, Math.floor((wallNow - lastVehicleFrameAt) / 1000))} с назад`}</span>
@@ -125,9 +112,10 @@ export default function StatusBar({
           <span>ML-ядро: {snapshot.status == null ? 'нет данных' : snapshot.status.ml_core_ok ? 'доступно' : 'недоступно'}</span>
           <span>Отброшено кадров: {droppedFrames}</span>
           <span>Последняя причина отказа: {lastDropReason ?? 'нет'}</span>
-          <span>Контракт frontend: v0 · поток может быть локальным stub</span>
+          {horizon && horizon.forecasts_total > 0 && <span>Сверено прогнозов с фактом: {horizon.resolved_total} из {horizon.forecasts_total}</span>}
+          {debugMode() && <span>Контракт frontend: v0 · поток может быть локальным stub</span>}
         </div></details>}
       </section>
-    </>
+    </header>
   )
 }
