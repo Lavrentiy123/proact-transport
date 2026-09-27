@@ -1,0 +1,34 @@
+/* Marey band: one header line and a plot whose SVG is sized in real pixels by MareyChart. */
+.marey-panel { height: 100%; min-height: 0; overflow: hidden; background: var(--surface-1); border: 1px solid var(--line-subtle); border-top: 0; padding: var(--sp-2) var(--sp-3) var(--sp-1); }
+.marey-heading, .marey-heading > div, .marey-legend { display: flex; align-items: center; gap: var(--sp-2); }
+.marey-heading { flex: none; justify-content: space-between; min-width: 0; color: var(--text-tertiary); font-size: var(--fs-12); }
+.marey-heading > .ui-panel-header-text { flex: 1 1 auto; flex-wrap: nowrap; min-width: 0; }
+.marey-heading .ui-panel-title { flex: none; }
+.marey-heading svg { flex: none; color: var(--text-tertiary); }
+.marey-footnote { min-width: 0; overflow: hidden; color: var(--text-tertiary); font-size: var(--fs-12); white-space: nowrap; text-overflow: ellipsis; }
+.marey-legend { flex: none; gap: var(--sp-4); color: var(--text-secondary); font-size: var(--fs-12); white-space: nowrap; }
+.marey-legend span::before { content: ''; display: inline-block; width: 16px; height: 2px; margin-right: var(--sp-1); vertical-align: 3px; }
+.plan-line::before { background: var(--text-tertiary); }
+.fact-line::before { background: var(--accent); }
+.forecast-line::before { background: var(--risk); }
+.marey-plot { position: relative; flex: 1 1 auto; min-height: 96px; min-width: 0; overflow: hidden; }
+.marey-svg { position: absolute; inset: 0; display: block; }
+.marey-grid { stroke: var(--line-subtle); }
+.marey-axis { fill: var(--text-tertiary); }
+.marey-plan { stroke: var(--text-tertiary); }
+.marey-observed { stroke: var(--accent); }
+.marey-forecast-range { stroke: var(--risk); }
+.marey-forecast circle { fill: var(--risk); stroke: var(--text-primary); }
+.marey-forecast text { fill: var(--risk); font-weight: var(--fw-semibold); }
+.marey-now { stroke: var(--text-secondary); }
+@media (max-width: 1199px) {
+  .marey-panel { height: auto; }
+  .marey-plot { height: 150px; }
+}
+@media (max-width: 980px) {
+  .marey-heading { align-items: flex-start; flex-direction: column; }
+  .marey-heading > .ui-panel-header-text { width: 100%; }
+}
+@media (max-width: 640px) {
+  .marey-legend { gap: var(--sp-2); flex-wrap: wrap; }
+}
