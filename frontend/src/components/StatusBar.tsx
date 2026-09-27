@@ -17,6 +17,9 @@ interface Props {
   lastVehicleFrameAt: number | null
   wallNow: number
   liveTimeLagS: number
+  /** Кадры, отброшенные проверкой контракта, и причина последнего отказа (BL-32). */
+  droppedFrames: number
+  lastDropReason: string | null
   scenario: Scenario
   playing: boolean
   onScenarioChange: (scenario: Scenario) => void
@@ -31,7 +34,7 @@ interface Props {
 const MIN_RESOLVED = 200
 
 export default function StatusBar({
-  snapshot, connected, source, liveConnection, liveStalled, hasVehicleSnapshot, hasAlertSnapshot, lastVehicleFrameAt, wallNow, liveTimeLagS, scenario, playing, onScenarioChange,
+  snapshot, connected, source, liveConnection, liveStalled, hasVehicleSnapshot, hasAlertSnapshot, lastVehicleFrameAt, wallNow, liveTimeLagS, droppedFrames, lastDropReason, scenario, playing, onScenarioChange,
   onTogglePlayback, onRestart, onSourceChange, horizon,
 }: Props) {
   const vehicles = snapshot.vehicles ?? []
@@ -120,6 +123,8 @@ export default function StatusBar({
           <span>Возраст пакета на момент статуса: {snapshot.status?.last_packet_age_s == null ? 'нет данных' : `${Math.round(snapshot.status.last_packet_age_s)} с`}</span>
           <span>Модель: {snapshot.status?.model_version || 'нет данных'}</span>
           <span>ML-ядро: {snapshot.status == null ? 'нет данных' : snapshot.status.ml_core_ok ? 'доступно' : 'недоступно'}</span>
+          <span>Отброшено кадров: {droppedFrames}</span>
+          <span>Последняя причина отказа: {lastDropReason ?? 'нет'}</span>
           <span>Контракт frontend: v0 · поток может быть локальным stub</span>
         </div></details>}
       </section>
