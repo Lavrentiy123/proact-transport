@@ -99,6 +99,7 @@ export default function StatusBar({
           <span>Снимок бортов: {lastVehicleFrameAt == null ? 'ещё не получен' : `${Math.max(0, Math.floor((wallNow - lastVehicleFrameAt) / 1000))} с назад`}</span>
           <span>Отставание позиций от часов потока: {hasVehicleSnapshot ? `${Math.floor(liveTimeLagS)} с` : 'нет данных'}</span>
           <span>Возраст пакета на момент статуса: {snapshot.status?.last_packet_age_s == null ? 'нет данных' : `${Math.round(snapshot.status.last_packet_age_s)} с`}</span>
+          <span>Модель: {snapshot.status?.model_version || 'нет данных'}</span>
           <span>Контракт frontend: v0 · поток может быть локальным stub</span>
         </div></details>}
       </section>
