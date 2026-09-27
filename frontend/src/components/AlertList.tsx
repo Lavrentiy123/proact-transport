@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, BellRing, ChevronRight, Search, TriangleAlert } from 'lucide-react'
+import { BellRing, Search } from 'lucide-react'
 import type { Alert, VehicleState } from '../types/contracts'
-import { formatCountdown, formatDelay, stopLabel } from '../utils/format'
-import { secondsUntil } from '../utils/time'
-import { displayClock } from '../utils/time'
+import { ALERT_FORMS, formatDelay, planCountdown, plural, stopLabel } from '../utils/format'
+import { contractTimeMs } from '../utils/time'
+import { RISK, riskMeta } from '../theme/risk'
+import { Button, EmptyState, Panel, PanelHeader, RiskMark, StatusDot, StatusPill } from '../ui'
 
 interface Props {
   alerts: Alert[]
@@ -17,10 +18,6 @@ interface Props {
   onSelect: (trId: number, alertId: string) => void
 }
 
-const alertWord = (count: number) => ({
-  zero: 'предупреждений', one: 'предупреждение', two: 'предупреждения',
-  few: 'предупреждения', many: 'предупреждений', other: 'предупреждения',
-})[new Intl.PluralRules('ru-RU').select(count)]
 const savedRiskKey = 'proact-transport:alert-risk-filter:v1'
 
 function initialRiskFilter(): 'all' | 'red' | 'yellow' {
@@ -63,51 +60,52 @@ export default function AlertList({ alerts, vehicles, selectedTrId, selectedAler
   }, [selectedAlertId, visibleOrder])
 
   return (
-    <aside className="panel alerts-panel" aria-label="Лента предупреждений">
-      <div className="panel-heading">
-        <div><span className="eyebrow">Очередь диспетчера</span><h2>Предупреждения</h2></div>
-        <span className="count-badge">{active.length}</span>
-      </div>
-      <div className="alerts-subheading">По приоритету · прогноз на 10–15 минут</div>
+    <Panel as="aside" id="alerts-feed" tabIndex={-1} className="alerts-panel" aria-label="Лента предупреждений">
+      <PanelHeader title="Предупреждения" actions={<span className="count-badge">{active.length}</span>}>
+        <span className="alerts-subheading">По приоритету · прогноз на 10–15 минут</span>
+      </PanelHeader>
       <div className="alerts-tools">
         <label className="alerts-search"><Search size={15} aria-hidden="true" /><span className="sr-only">Поиск борта по номеру</span><input type="search" inputMode="numeric" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Номер борта" /></label>
         <div className="alerts-filters" role="group" aria-label="Фильтр предупреждений по риску">
-          <button type="button" aria-pressed={riskFilter === 'all'} onClick={() => setRiskFilter('all')}>Все</button>
-          <button type="button" aria-pressed={riskFilter === 'red'} onClick={() => setRiskFilter('red')}>Критично</button>
-          <button type="button" aria-pressed={riskFilter === 'yellow'} onClick={() => setRiskFilter('yellow')}>Внимание</button>
+          <Button variant="ghost" aria-pressed={riskFilter === 'all'} onClick={() => setRiskFilter('all')}>Все</Button>
+          <Button variant="ghost" aria-pressed={riskFilter === 'red'} onClick={() => setRiskFilter('red')}>{RISK.red.label}</Button>
+          <Button variant="ghost" aria-pressed={riskFilter === 'yellow'} onClick={() => setRiskFilter('yellow')}>{RISK.yellow.label}</Button>
         </div>
       </div>
       {visible.length === 0 ? (
-        <div className="empty-panel"><BellRing size={28} /><strong>{loading ? 'Ожидаем данные' : filtered.length === 0 && active.length > 0 ? 'Ничего не найдено' : 'Активных предупреждений нет'}</strong><span>{loading ? 'Лента появится после получения снимка.' : active.length > 0 ? 'Измените фильтр или номер борта.' : 'Новые предупреждения появятся здесь.'}</span></div>
+        <EmptyState icon={<BellRing size={28} />} title={loading ? 'Ожидаем данные' : filtered.length === 0 && active.length > 0 ? 'Ничего не найдено' : 'Активных предупреждений нет'}
+          hint={loading ? 'Лента появится после получения снимка.' : active.length > 0 ? 'Измените фильтр или номер борта.' : 'Новые предупреждения появятся здесь.'} />
       ) : (
         <div className="alerts-scroll" ref={scrollRef}>
           {visible.map((alert) => {
             const vehicle = vehicles.find((item) => item.tr_id === alert.tr_id)
             const selected = alert.alert_id === selectedAlertId && alert.tr_id === selectedTrId
+            const riskLabel = riskMeta(alert.risk).label.toLowerCase()
+            const target = stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)
+            const countdown = planCountdown((contractTimeMs(alert.forecast.target_time_plan) - contractTimeMs(simTime)) / 1000)
             return (
               <button
                 key={alert.alert_id}
                 ref={selected ? selectedItemRef : undefined}
                 className={`alert-item risk-${alert.risk}${selected ? ' selected' : ''}`}
                 onClick={() => onSelect(alert.tr_id, alert.alert_id)}
-                aria-pressed={selected}
-                aria-label={`Событие ${alert.alert_id}: борт ${alert.tr_id}, ${alert.risk === 'red' ? 'критично' : alert.risk === 'yellow' ? 'внимание' : 'в графике'}, ${formatDelay(alert.forecast.delay_pred_s)} к ${stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}, создано ${displayClock(alert.created_at)}`}
+                aria-current={selected || undefined}
+                aria-label={`Борт ${alert.tr_id}, ${riskLabel}, отклонение ${formatDelay(alert.forecast.delay_pred_s)}, к ${target}, ${countdown}`}
               >
                 <div className="alert-item-top">
-                  <span className={`risk-indicator risk-${alert.risk}`}>{alert.risk === 'red' ? <TriangleAlert size={13} /> : <ArrowUpRight size={13} />}</span>
+                  <RiskMark risk={alert.risk} />
                   <span className="alert-vehicle">Борт {alert.tr_id}</span>
-                  <ChevronRight size={16} className="alert-chevron" />
+                  <span className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)}</span>
                 </div>
-                <div className="alert-delay">{formatDelay(alert.forecast.delay_pred_s)} <small>к {stopLabel(alert.forecast.target_stop_name, alert.forecast.target_stop_id)}</small></div>
-                <div className="alert-item-bottom"><span>{alert.forecast.cause.text}</span><span>через {formatCountdown(secondsUntil(alert.forecast.target_time_plan, simTime))}</span></div>
-                {vehicle?.stale && <span className="stale-tag">Данные устарели</span>}
+                <div className="alert-item-bottom">к {target} · {countdown}</div>
+                {vehicle?.stale && <StatusPill state="stale" className="stale-tag">Данные устарели</StatusPill>}
               </button>
             )
           })}
-          {riskFilter === 'all' && query.trim() === '' && filtered.length > 7 && <button className="alerts-more" type="button" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Свернуть список' : `Показать все · ещё ${filtered.length - 7} ${alertWord(filtered.length - 7)}`}</button>}
+          {riskFilter === 'all' && query.trim() === '' && filtered.length > 7 && <Button block className="alerts-more" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Свернуть список' : `Показать все · ещё ${filtered.length - 7} ${plural(filtered.length - 7, ALERT_FORMS)}`}</Button>}
         </div>
       )}
-      <div className="panel-footer"><span className={`live-dot${feed === 'live' ? '' : feed === 'degraded' ? ' is-degraded' : ' is-paused'}`} />{feed === 'live' ? 'Лента обновляется вслед за потоком' : feed === 'degraded' ? 'Телеметрии нет: прогнозы по расписанию' : 'Лента не обновляется: нет свежих данных'}<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
-    </aside>
+      <div className="panel-footer"><StatusDot state={feed === 'live' ? 'live' : feed === 'degraded' ? 'degraded' : 'waiting'} className="live-dot" />{feed === 'live' ? 'Лента обновляется вслед за потоком' : feed === 'degraded' ? 'Телеметрии нет: прогнозы по расписанию' : 'Лента не обновляется: нет свежих данных'}<a className="mobile-map-jump" href="#vehicle-map">К карте</a></div>
+    </Panel>
   )
 }

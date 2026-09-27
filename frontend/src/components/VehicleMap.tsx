@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { Compass, Layers3, MapPin, Navigation2 } from 'lucide-react'
+import { Layers3, MapPin } from 'lucide-react'
 import * as maplibregl from 'maplibre-gl'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
@@ -9,6 +9,10 @@ import type { Risk, TrackResponse, VehicleState } from '../types/contracts'
 import { formatDelay, stopLabel } from '../utils/format'
 import { validCoordinate } from '../utils/geo'
 import { contractTimeMs } from '../utils/time'
+import { RISK, riskMeta } from '../theme/risk'
+import { cssToken } from '../theme/tokens'
+import { addRiskIcons, riskIconName, SHAPE_PATHS } from '../theme/mapIcons'
+import { Button, EmptyState, PanelHeader } from '../ui'
 
 interface Props {
   source: 'demo' | 'live'
@@ -27,18 +31,18 @@ interface Props {
 
 const emptyPoints: FeatureCollection<Point> = { type: 'FeatureCollection', features: [] }
 const emptyLines: FeatureCollection<LineString> = { type: 'FeatureCollection', features: [] }
-const riskColor: maplibregl.ExpressionSpecification = ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#8ca4b1']
 // Backend returns the whole-day schedule; only the stretch around "now" is drawn.
 const NETWORK_BACK_MS = 15 * 60_000
 const NETWORK_AHEAD_MS = 45 * 60_000
 const basemapStyleUrl = import.meta.env.VITE_MAP_STYLE_URL?.trim() || 'https://tiles.openfreemap.org/styles/dark'
 const installedMapHandlers = new WeakSet<MapLibreMap>()
 
-const offlineStyle: maplibregl.StyleSpecification = {
+// Built when the map is created, so the colour comes from the loaded tokens.
+const offlineStyle = (): maplibregl.StyleSpecification => ({
   version: 8,
   sources: {},
-  layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#142433' } }],
-}
+  layers: [{ id: 'background', type: 'background', paint: { 'background-color': cssToken('--surface-1') } }],
+})
 
 // Vite serves the worker as a real module URL; MapLibre's default blob worker
 // is blocked in the embedded browser used for the demo and visual QA.
@@ -49,6 +53,11 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
   const firstStyleFont = map.getStyle().layers.find((layer) => layer.type === 'symbol' && Array.isArray(layer.layout?.['text-font']))
   const styleFont = firstStyleFont?.type === 'symbol' ? firstStyleFont.layout?.['text-font'] : undefined
   const clusterFont = Array.isArray(styleFont) && styleFont.every((item) => typeof item === 'string') ? styleFont : ['Noto Sans Regular']
+  // MapLibre paint cannot read var(--…); tokens are resolved once per style load.
+  const riskColor: maplibregl.ExpressionSpecification = ['match', ['get', 'risk'],
+    'red', cssToken(RISK.red.token), 'yellow', cssToken(RISK.yellow.token), 'green', cssToken(RISK.green.token), cssToken(RISK.none.token)]
+  const surface = cssToken('--surface-1')
+  const textPrimary = cssToken('--text-primary')
   map.addSource('network', { type: 'geojson', data: emptyLines })
   map.addLayer({
     id: 'network-line', type: 'line', source: 'network',
@@ -60,23 +69,23 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     id: 'planned-route-line', type: 'line', source: 'planned-route',
     layout: { 'line-join': 'round', 'line-cap': 'round' },
     paint: {
-      'line-color': ['match', ['get', 'risk'], 'red', '#ff5d64', 'yellow', '#f4bd62', 'green', '#59ccab', '#7ec7da'],
-      'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [2, 1.5],
+      'line-color': cssToken('--text-tertiary'),
+      'line-width': 3, 'line-opacity': 0.95, 'line-dasharray': [2, 1.5],
     },
   })
   map.addSource('vehicle-trail', { type: 'geojson', data: emptyLines })
   map.addLayer({
     id: 'vehicle-trail-line', type: 'line', source: 'vehicle-trail',
     layout: { 'line-join': 'round', 'line-cap': 'round' },
-    paint: { 'line-color': '#f1bd67', 'line-width': 5, 'line-opacity': 0.95 },
+    paint: { 'line-color': cssToken('--accent'), 'line-width': 5, 'line-opacity': 0.95 },
   })
   map.addSource('planned-stops', { type: 'geojson', data: emptyPoints })
   map.addLayer({
     id: 'planned-stops-circle', type: 'circle', source: 'planned-stops',
     paint: {
-      'circle-color': ['case', ['get', 'target'], '#ff897f', '#142433'],
+      'circle-color': ['case', ['get', 'target'], cssToken('--accent'), surface],
       'circle-radius': ['case', ['get', 'target'], 8, 6],
-      'circle-stroke-color': ['case', ['get', 'target'], '#ffffff', '#b5e2e8'],
+      'circle-stroke-color': ['case', ['get', 'target'], textPrimary, cssToken('--text-secondary')],
       'circle-stroke-width': 2,
     },
   })
@@ -85,46 +94,63 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     clusterProperties: {
       red_count: ['+', ['case', ['==', ['get', 'risk'], 'red'], 1, 0]],
       yellow_count: ['+', ['case', ['==', ['get', 'risk'], 'yellow'], 1, 0]],
+      green_count: ['+', ['case', ['==', ['get', 'risk'], 'green'], 1, 0]],
     },
   })
+  // A neutral fill keeps clusters apart from single vehicles; the ring carries the highest risk inside.
   map.addLayer({
     id: 'vehicle-clusters', type: 'circle', source: 'vehicles', filter: ['has', 'point_count'],
-    paint: { 'circle-color': ['case', ['>', ['get', 'red_count'], 0], '#a94952', ['>', ['get', 'yellow_count'], 0], '#976b36', '#2e6676'],
-      'circle-radius': ['step', ['get', 'point_count'], 17, 20, 22, 100, 27], 'circle-stroke-color': '#f2f7f8', 'circle-stroke-width': 1.5 },
+    paint: { 'circle-color': cssToken('--surface-2'),
+      'circle-radius': ['step', ['get', 'point_count'], 17, 20, 22, 100, 27],
+      'circle-stroke-color': ['case', ['>', ['get', 'red_count'], 0], cssToken(RISK.red.token), ['>', ['get', 'yellow_count'], 0], cssToken(RISK.yellow.token),
+        ['>', ['get', 'green_count'], 0], cssToken(RISK.green.token), cssToken(RISK.none.token)],
+      'circle-stroke-width': 3 },
   })
   if (canLabelClusters) {
     map.addLayer({
       id: 'vehicle-cluster-count', type: 'symbol', source: 'vehicles', filter: ['has', 'point_count'],
       layout: { 'text-field': ['concat', ['get', 'point_count_abbreviated'], ['case', ['>', ['get', 'red_count'], 0], ' !', '']], 'text-size': 12, 'text-font': clusterFont },
-      paint: { 'text-color': '#f5fbfc' },
+      paint: { 'text-color': textPrimary },
     })
   }
-  map.addLayer({
-    id: 'vehicles-glow', type: 'circle', source: 'vehicles', filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': riskColor,
-      'circle-radius': ['case', ['get', 'selected'], 19, 15],
-      'circle-opacity': 0.18,
-    },
-  })
-  map.addLayer({
-    id: 'vehicles-circle', type: 'circle', source: 'vehicles', filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': riskColor,
-      'circle-radius': ['case', ['get', 'selected'], 10, 8],
-      'circle-stroke-color': '#f6fbff',
-      'circle-stroke-width': ['case', ['get', 'selected'], 3, 2],
-      'circle-opacity': ['case', ['get', 'stale'], 0.58, 1],
-    },
-  })
+  const iconsReady = addRiskIcons(map)
+  const iconImage: maplibregl.ExpressionSpecification = ['match', ['get', 'risk'],
+    'red', riskIconName('red'), 'yellow', riskIconName('yellow'), 'green', riskIconName('green'), riskIconName('none')]
+  // Critical markers are a quarter larger, the selected one larger still.
+  const iconSize = (scale: number): maplibregl.ExpressionSpecification =>
+    ['*', scale, ['case', ['==', ['get', 'risk'], 'red'], 1.25, 1], ['case', ['to-boolean', ['get', 'selected']], 1.3, 1]]
+  const staleOutline = cssToken('--text-tertiary')
+  const addMarkerLayers = (id: string, sourceId: string, filter?: maplibregl.FilterSpecification) => {
+    const where = filter ? { filter } : {}
+    if (!iconsReady) {
+      map.addLayer({
+        id: `${id}-icon`, type: 'circle', source: sourceId, ...where,
+        paint: { 'circle-color': riskColor, 'circle-radius': ['case', ['to-boolean', ['get', 'selected']], 10, 8], 'circle-stroke-color': textPrimary,
+          'circle-stroke-width': 2, 'circle-opacity': ['case', ['to-boolean', ['get', 'stale']], 0.55, 1] },
+      })
+      return
+    }
+    const layout = { 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-image': iconImage }
+    map.addLayer({
+      id: `${id}-outline`, type: 'symbol', source: sourceId, ...where,
+      layout: { ...layout, 'icon-size': iconSize(1.3) },
+      paint: { 'icon-color': ['case', ['to-boolean', ['get', 'stale']], staleOutline, textPrimary], 'icon-opacity': ['case', ['to-boolean', ['get', 'stale']], 0.7, 1] },
+    })
+    map.addLayer({
+      id: `${id}-icon`, type: 'symbol', source: sourceId, ...where,
+      layout: { ...layout, 'icon-size': iconSize(1) },
+      paint: { 'icon-color': riskColor, 'icon-opacity': ['case', ['to-boolean', ['get', 'stale']], 0.55, 1] },
+    })
+  }
+  addMarkerLayers('vehicles', 'vehicles', ['!', ['has', 'point_count']])
   map.addSource('selected-vehicle', { type: 'geojson', data: emptyPoints })
+  // The halo marks only the selected vehicle; under every marker it blurred neighbours together.
   map.addLayer({
-    id: 'selected-vehicle-circle', type: 'circle', source: 'selected-vehicle',
-    paint: { 'circle-color': riskColor,
-      'circle-radius': 11, 'circle-opacity': ['case', ['get', 'stale'], 0.55, 1],
-      'circle-stroke-color': ['case', ['get', 'stale'], '#f6c987', '#f6fbff'],
-      'circle-stroke-width': ['case', ['get', 'stale'], 4, 3] },
+    id: 'selected-vehicle-glow', type: 'circle', source: 'selected-vehicle',
+    paint: { 'circle-color': riskColor, 'circle-radius': 21, 'circle-opacity': 0.22,
+      'circle-stroke-color': ['case', ['to-boolean', ['get', 'stale']], staleOutline, textPrimary], 'circle-stroke-width': 1.5, 'circle-stroke-opacity': 0.8 },
   })
+  addMarkerLayers('selected-vehicle', 'selected-vehicle')
   if (installedMapHandlers.has(map)) return
   installedMapHandlers.add(map)
   let hoverPopup: maplibregl.Popup | null = null
@@ -137,7 +163,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     hoverPopup.setLngLat(coordinates).setText(label).addTo(map)
   }
   const hideTooltip = () => { hoverPopup?.remove(); hoverPopup = null; hoverKey = '' }
-  const riskText = (risk: unknown) => risk === 'red' ? 'критично' : risk === 'yellow' ? 'внимание' : risk === 'green' ? 'в графике' : 'без прогноза'
+  const riskText = (risk: unknown) => riskMeta(risk).label.toLowerCase()
   const vehicleTooltip = (properties: Record<string, unknown> | null | undefined) => {
     const delay = typeof properties?.delay === 'number' ? ` · прогноз ${formatDelay(properties.delay)}` : ''
     const target = typeof properties?.target === 'string' && properties.target ? ` к ${properties.target}` : ''
@@ -150,11 +176,12 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     if (!feature || feature.geometry.type !== 'Point' || !Number.isFinite(clusterId)) return
     try {
       const zoom = await (map.getSource('vehicles') as GeoJSONSource).getClusterExpansionZoom(clusterId)
-      map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom })
+      const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : undefined
+      map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom, duration })
     } catch { /* The style may have changed while the expansion was calculated. */ }
   })
-  map.on('click', 'vehicles-circle', (event) => {
-    const overlaps = [...new Set(map.queryRenderedFeatures(event.point, { layers: ['vehicles-circle'] })
+  map.on('click', 'vehicles-icon', (event) => {
+    const overlaps = [...new Set(map.queryRenderedFeatures(event.point, { layers: ['vehicles-icon'] })
       .map((feature) => Number(feature.properties?.tr_id)).filter(Number.isFinite))]
     if (overlaps.length > 1) {
       onOverlap(overlaps)
@@ -164,20 +191,20 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     const trId = Number(event.features?.[0]?.properties?.tr_id)
     if (Number.isFinite(trId)) onSelect(trId)
   })
-  map.on('mouseenter', 'vehicles-circle', () => { map.getCanvas().style.cursor = 'pointer' })
-  map.on('mousemove', 'vehicles-circle', (event) => {
+  map.on('mouseenter', 'vehicles-icon', () => { map.getCanvas().style.cursor = 'pointer' })
+  map.on('mousemove', 'vehicles-icon', (event) => {
     const feature = event.features?.[0]
     if (feature?.geometry.type !== 'Point') return
     showTooltip(feature.geometry.coordinates as [number, number], vehicleTooltip(feature.properties))
   })
-  map.on('mouseleave', 'vehicles-circle', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
-  map.on('mouseenter', 'selected-vehicle-circle', () => { map.getCanvas().style.cursor = 'pointer' })
-  map.on('mousemove', 'selected-vehicle-circle', (event) => {
+  map.on('mouseleave', 'vehicles-icon', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
+  map.on('mouseenter', 'selected-vehicle-icon', () => { map.getCanvas().style.cursor = 'pointer' })
+  map.on('mousemove', 'selected-vehicle-icon', (event) => {
     const feature = event.features?.[0]
     if (feature?.geometry.type !== 'Point') return
     showTooltip(feature.geometry.coordinates as [number, number], vehicleTooltip(feature.properties))
   })
-  map.on('mouseleave', 'selected-vehicle-circle', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
+  map.on('mouseleave', 'selected-vehicle-icon', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
   map.on('mouseenter', 'vehicle-clusters', () => { map.getCanvas().style.cursor = 'pointer' })
   map.on('mousemove', 'vehicle-clusters', (event) => {
     const feature = event.features?.[0]
@@ -185,7 +212,7 @@ function installLayers(map: MapLibreMap, onSelect: (trId: number) => void, onOve
     const count = Number(feature.properties?.point_count)
     const red = Number(feature.properties?.red_count)
     const yellow = Number(feature.properties?.yellow_count)
-    showTooltip(feature.geometry.coordinates as [number, number], `Группа: ${count} ${vehicleWord(count)} · ${red > 0 ? 'есть критичные' : yellow > 0 ? 'есть предупреждения' : 'в графике'}`)
+    showTooltip(feature.geometry.coordinates as [number, number], `Группа: ${count} ${vehicleWord(count)} · ${red > 0 ? 'есть критичные' : yellow > 0 ? 'есть предупреждения' : RISK.green.label.toLowerCase()}`)
   })
   map.on('mouseleave', 'vehicle-clusters', () => { map.getCanvas().style.cursor = ''; hideTooltip() })
   map.on('remove', hideTooltip)
@@ -232,15 +259,21 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
     try {
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: basemapStyleUrl === 'offline' ? offlineStyle : basemapStyleUrl,
+        style: basemapStyleUrl === 'offline' ? offlineStyle() : basemapStyleUrl,
         center: [37.55, 55.74],
         zoom: 10.5,
+        attributionControl: false,
       })
     } catch {
       setMapUnavailable(true)
       return
     }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
+    // Collapsed to the "i" button, so the attribution never covers the legend plate.
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
+    const collapseAttribution = () => map.getContainer().querySelector('.maplibregl-ctrl-attrib.maplibregl-compact-show')?.classList.remove('maplibregl-compact-show')
+    map.once('load', collapseAttribution)
+    map.once('idle', collapseAttribution)
     const container = map.getContainer()
     const markUserMoved = () => { userMovedRef.current = true }
     const markKeyboardMove = (event: KeyboardEvent) => {
@@ -279,7 +312,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       if (tileCheckTimer) clearTimeout(tileCheckTimer)
       tileCheckTimer = null
       setBasemapStatus('offline')
-      map.setStyle(offlineStyle, { diff: false })
+      map.setStyle(offlineStyle(), { diff: false })
     }
     // A remote style that never arrives (slow VPN, blocked host) must not leave the
     // map without vehicles and routes: the local schematic takes over.
@@ -372,7 +405,7 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
     ;(map.getSource('selected-vehicle') as GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: selectedVehicle ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: [selectedVehicle.lon, selectedVehicle.lat] },
-        properties: { tr_id: selectedVehicle.tr_id, risk: selectedRiskValue, stale: selectedVehicle.stale,
+        properties: { tr_id: selectedVehicle.tr_id, risk: selectedRiskValue, stale: selectedVehicle.stale, selected: true,
           delay: selectedVehicle.forecast?.delay_pred_s ?? null,
           target: selectedVehicle.forecast ? stopLabel(selectedVehicle.forecast.target_stop_name, selectedVehicle.forecast.target_stop_id) : '' } }] : [],
     })
@@ -446,12 +479,10 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
       if (coordinates.length > 1) {
         const bounds = new maplibregl.LngLatBounds()
         coordinates.forEach(([lon, lat]) => bounds.extend([lon, lat]))
-        // The count, legend and attribution occupy the lower part of the map.
-        // Reserve that space when fitting, including on narrow screens where
-        // a symmetric padding can place the southernmost vehicle behind them.
+        // The legend plate sits over the lower left corner; keep the southernmost vehicle above it.
         const narrowMap = map.getContainer().clientWidth <= 640
         map.fitBounds(bounds, {
-          padding: { top: narrowMap ? 110 : 70, bottom: narrowMap ? 205 : 190, left: narrowMap ? 32 : 68, right: narrowMap ? 32 : 68 },
+          padding: { top: 32, bottom: narrowMap ? 130 : 100, left: narrowMap ? 24 : 48, right: narrowMap ? 48 : 64 },
           maxZoom: 12.8,
           duration,
         })
@@ -463,43 +494,42 @@ export default function VehicleMap({ source, vehicles, selectedTrId, selectedRis
 
   return (
     <section id="vehicle-map" className="map-panel" aria-label="Карта движения бортов">
-      <div ref={containerRef} className="map-canvas" />
-      {basemapStatus === 'offline' && <div className="map-grid-overlay" aria-hidden="true" />}
-      <div className="map-topline">
-        <span><Layers3 size={15} /> Карта маршрутов</span>
-        <div className="map-topline-actions">
-          {vehicles.length > 1 && <button className="map-overview-button" type="button" onClick={() => {
-            userMovedRef.current = false
-            if (viewMode === 'overview' && selectedTrId != null) setViewMode('selected')
-            else {
-              lastFittedRef.current = null
-              setViewMode('overview')
-              setMapSizeRevision((current) => current + 1)
-            }
-          }}>{viewMode === 'overview' && selectedTrId != null ? 'К маршруту' : 'Все борта'}</button>}
-          {vehicles.length > 0 && <label className="map-vehicle-picker">Борт
+      <PanelHeader compact className="map-header" titleAs="h2" icon={<Layers3 size={16} className="heading-icon" />} title="Карта"
+        actions={<div className="map-header-actions">
+          {mapUnavailable ? <span className="map-basemap-status">Карта недоступна</span> : basemapStatus === 'offline' && <span className="map-basemap-status" title="Картографические тайлы недоступны, показана схема">Схема без карты</span>}
+          {vehicles.length > 0 && <label className="map-vehicle-picker"><span>Борт</span>
             <select value={selectedTrId ?? ''} onChange={(event) => { setOverlappingIds([]); setViewMode('selected'); onSelect(Number(event.target.value)) }} aria-label="Выбрать борт на карте">
               <option value="" disabled>Выберите</option>
               {vehicles.map((item) => <option key={item.tr_id} value={item.tr_id}>{item.tr_id}</option>)}
             </select>
           </label>}
-          <span className="map-offline-label">{mapUnavailable ? 'Карта недоступна' : basemapStatus === 'online' ? 'Картографическая подложка' : basemapStatus === 'loading' ? 'Загрузка карты…' : 'Схема: тайлы недоступны'}</span>
-        </div>
-      </div>
-      <div className="map-location-label"><Compass size={15} /> {source === 'demo' ? 'МОСКВА · ДЕМО-ДАННЫЕ' : 'МАРШРУТ · ДАННЫЕ ПОТОКА'}</div>
+          {vehicles.length > 1 && <Button className="map-overview-button" aria-pressed={viewMode === 'overview'}
+            title={viewMode === 'overview' && selectedTrId != null ? 'Вернуться к маршруту выбранного борта' : 'Показать все борта'} onClick={() => {
+              userMovedRef.current = false
+              if (viewMode === 'overview' && selectedTrId != null) setViewMode('selected')
+              else {
+                lastFittedRef.current = null
+                setViewMode('overview')
+                setMapSizeRevision((current) => current + 1)
+              }
+            }}>{viewMode === 'overview' && selectedTrId != null ? 'К маршруту' : 'Все борта'}</Button>}
+        </div>} />
+      <div className="map-stage">
+      <div ref={containerRef} className="map-canvas" />
+      {basemapStatus === 'offline' && <div className="map-grid-overlay" aria-hidden="true" />}
       <div className="map-legend">
-        <span><i className="legend-dot legend-red" />Критично</span>
-        <span><i className="legend-dot legend-yellow" />Внимание</span>
-        <span><i className="legend-dot legend-green" />В графике</span>
-        <span><i className="legend-dot legend-grey" />Нет прогноза</span>
-        <span><i className="legend-dot legend-target" />Целевая остановка</span>
-        <span className="map-cluster-legend">Группа: цвет по высшему риску</span>
+        <ul className="map-legend-items" aria-label="Обозначения">
+          {(['red', 'yellow', 'green', 'none'] as const).map((risk) => <li key={risk} className={`risk-${risk}`}>
+            <svg className="map-legend-shape" viewBox="0 0 24 24" aria-hidden="true"><path d={SHAPE_PATHS[RISK[risk].shape]} fillRule="evenodd" /></svg>{RISK[risk].label}</li>)}
+          <li className="map-legend-target"><i className="legend-dot legend-target" />Цель</li>
+        </ul>
+        <div className="map-count" role="status">{loading ? 'Ожидаем снимок' : `${vehicles.length} в снимке · ${validVehicles.length} ${mapUnavailable ? 'с допустимой позицией' : 'на карте'}`}{hiddenCount > 0 && <span> · {hiddenCount} без допустимой позиции (включая 0,0)</span>}{vehicles.some((item) => item.stale) && <span> · данные устарели</span>}</div>
       </div>
-      <div className="map-route-hint"><Navigation2 size={15} /> Нажмите на борт, чтобы увидеть маршрут</div>
-      <div className="map-count" role="status">{loading ? 'Ожидаем снимок' : `${vehicles.length} в снимке · ${validVehicles.length} ${mapUnavailable ? 'с допустимой позицией' : 'на карте'}`}{hiddenCount > 0 && <span> · {hiddenCount} без допустимой позиции (включая 0,0)</span>}{vehicles.some((item) => item.stale) && <span> · данные устарели</span>}</div>
-      {overlappingIds.length > 1 && <div className="map-overlap-list" role="group" aria-label="Борта в выбранной точке"><strong>В этой точке несколько бортов</strong><div>{overlappingIds.map((trId) => <button key={trId} type="button" onClick={() => { setOverlappingIds([]); setViewMode('selected'); onSelect(trId) }}>Борт {trId}</button>)}</div><button className="map-overlap-close" type="button" onClick={() => setOverlappingIds([])}>Закрыть</button></div>}
-      {mapUnavailable && <div className="map-unavailable"><strong>Карта недоступна в этом браузере</strong><span>Выберите борт из списка. Карточка и предупреждения продолжают работать.</span><div className="map-fallback-list">{vehicles.map((item) => <button type="button" key={item.tr_id} onClick={() => onSelect(item.tr_id)} aria-pressed={selectedTrId === item.tr_id}>Борт {item.tr_id}{item.forecast ? ` · ${item.forecast.risk === 'red' ? 'критично' : item.forecast.risk === 'yellow' ? 'внимание' : 'в графике'}` : ' · без прогноза'}</button>)}</div></div>}
-      {vehicles.length === 0 && !mapUnavailable && <div className="map-empty"><MapPin size={30} /><strong>{loading ? 'Ожидаем данные о бортах' : 'Бортов в снимке нет'}</strong><span>{loading ? 'Положение появится после получения потока.' : 'Текущий снимок содержит пустой список бортов.'}</span></div>}
+      {overlappingIds.length > 1 && <div className="map-overlap-list" role="group" aria-label="Борта в выбранной точке"><strong>В этой точке несколько бортов</strong><div>{overlappingIds.map((trId) => <Button key={trId} onClick={() => { setOverlappingIds([]); setViewMode('selected'); onSelect(trId) }}>Борт {trId}</Button>)}</div><Button variant="ghost" className="map-overlap-close" onClick={() => setOverlappingIds([])}>Закрыть</Button></div>}
+      {mapUnavailable && <div className="map-unavailable"><strong>Карта недоступна в этом браузере</strong><span>Выберите борт из списка. Карточка и предупреждения продолжают работать.</span><div className="map-fallback-list">{vehicles.map((item) => <Button key={item.tr_id} onClick={() => onSelect(item.tr_id)} aria-pressed={selectedTrId === item.tr_id}>Борт {item.tr_id} · {riskMeta(item.forecast?.risk).label.toLowerCase()}</Button>)}</div></div>}
+      {vehicles.length === 0 && !mapUnavailable && <EmptyState variant="overlay" className="map-empty" icon={<MapPin size={30} />} title={loading ? 'Ожидаем данные о бортах' : 'Бортов в снимке нет'}
+        hint={loading ? 'Положение появится после получения потока.' : 'Текущий снимок содержит пустой список бортов.'} />}
+      </div>
     </section>
   )
 }

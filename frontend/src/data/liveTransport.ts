@@ -1,4 +1,4 @@
-import { parseWsMessage, type ActionResponse, type HorizonMetrics, type TrackResponse, type WsMessage } from '../types/contracts'
+import { parseWsFrame, type ActionResponse, type DropReason, type HorizonMetrics, type TrackResponse, type WsMessage } from '../types/contracts'
 import { contractTimeUs } from '../utils/time'
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected'
@@ -82,6 +82,7 @@ export function mergeLiveFrame(previous: WsMessage, incoming: WsMessage, times: 
 export function connectLive(
   onMessage: (message: WsMessage) => void,
   onConnection: (state: ConnectionState) => void,
+  onDrop?: (reason: DropReason) => void,
 ): () => void {
   let closed = false
   let socket: WebSocket | null = null
@@ -97,10 +98,12 @@ export function connectLive(
     connection.onopen = () => { if (closed || socket !== connection) return; attempt = 0; onConnection('connected') }
     connection.onmessage = (event) => {
       if (closed || socket !== connection) return
-      try {
-        const message = parseWsMessage(JSON.parse(String(event.data)))
-        if (message) onMessage(message)
-      } catch { /* A malformed frame is ignored; the last valid snapshot stays visible. */ }
+      // A malformed frame is dropped and counted; the last valid snapshot stays visible.
+      let raw: unknown
+      try { raw = JSON.parse(String(event.data)) } catch { onDrop?.('json'); return }
+      const result = parseWsFrame(raw)
+      if ('message' in result) onMessage(result.message)
+      else onDrop?.(result.reason)
     }
     connection.onclose = () => {
       if (closed || socket !== connection) return
@@ -157,17 +160,45 @@ export async function fetchHorizon(signal: AbortSignal): Promise<HorizonMetrics 
 
 /** Решение диспетчера по алерту: apply — отправить рекомендацию водителю, dismiss — отклонить. */
 export async function postAction(alertId: string, action: 'apply' | 'dismiss'): Promise<ActionResponse> {
-  const response = await fetch('/api/v1/actions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ alert_id: alertId, action }),
-    signal: AbortSignal.timeout(8_000),
-  })
-  if (response.status === 409) throw new Error('алерт уже снят или решён')
-  if (!response.ok) throw new Error(`HTTP ${response.status}`)
-  const value = await response.json() as Partial<ActionResponse>
-  if (typeof value.alert_id !== 'string' || typeof value.status !== 'string' || typeof value.driver_message !== 'string') {
-    throw new Error('Некорректный ответ на действие')
+  const timeout = timeoutSignal(REQUEST_TIMEOUT_MS)
+  try {
+    const response = await fetch('/api/v1/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alert_id: alertId, action }),
+      signal: timeout.signal,
+    })
+    if (response.status === 409) throw new Error('алерт уже снят или решён')
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const value = await response.json() as Partial<ActionResponse>
+    if (typeof value.alert_id !== 'string' || typeof value.status !== 'string' || typeof value.driver_message !== 'string') {
+      throw new Error('Некорректный ответ на действие')
+    }
+    return value as ActionResponse
+  } finally {
+    timeout.dispose()
   }
-  return value as ActionResponse
+}
+
+export const REQUEST_TIMEOUT_MS = 8_000
+
+/** Like AbortSignal.timeout (rejects with TimeoutError), but on window timers and chained to an optional parent signal. */
+export function timeoutSignal(ms: number, parent?: AbortSignal) {
+  const controller = new AbortController()
+  const onAbort = () => controller.abort(parent?.reason)
+  if (parent?.aborted) onAbort()
+  else parent?.addEventListener('abort', onAbort, { once: true })
+  const timer = window.setTimeout(() => controller.abort(new DOMException('Нет ответа', 'TimeoutError')), ms)
+  return {
+    signal: controller.signal,
+    dispose: () => { window.clearTimeout(timer); parent?.removeEventListener('abort', onAbort) },
+  }
+}
+
+export function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
+export function isTimeout(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'TimeoutError'
 }

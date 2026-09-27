@@ -1,0 +1,18 @@
+/* Карточка инцидента: риск → цель → рекомендация видны без прокрутки. */
+.incident-panel .incident-header { padding: var(--sp-3) var(--sp-4) var(--sp-2); }
+.incident-panel .incident-header .ui-panel-title { font-size: var(--fs-18); }
+.incident-panel .incident-risk-band { margin: 0 var(--sp-4); }
+.incident-frozen { display: block; margin: var(--sp-1) var(--sp-4) 0; color: var(--text-secondary); font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+.incident-panel .target-section { padding: var(--sp-2) var(--sp-4) var(--sp-3); border-bottom: 0; }
+.incident-panel .target-name { margin-top: var(--sp-2); }
+.incident-panel .target-countdown { margin-top: var(--sp-2); }
+.incident-panel .target-countdown .target-arrival { margin-left: 0; color: var(--text-primary); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
+.incident-panel .recommendation-box { margin: 0 var(--sp-4) var(--sp-3); }
+.incident-panel .recommendation-box p { margin: var(--sp-1) 0; }
+.incident-panel .action-buttons { margin: var(--sp-2) 0 var(--sp-1); }
+.incident-panel .recommendation-box .action-offline { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.incident-panel .cause-section { padding-top: var(--sp-1); }
+.forecast-frozen { margin-top: var(--sp-3); }
+.whatif-details { margin: 0 var(--sp-4) var(--sp-3); color: var(--text-secondary); font-size: var(--fs-12); }
+.whatif-details summary { cursor: pointer; padding: var(--sp-1) 0; color: var(--accent); font-weight: var(--fw-semibold); }
+.whatif-details .whatif-box { margin: var(--sp-2) 0 0; }

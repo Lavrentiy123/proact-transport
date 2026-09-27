@@ -18,7 +18,7 @@ permissions:
 jobs:
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: frontend
@@ -32,7 +32,29 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test:contracts
+      - run: npm run test:unit
       - run: npm run build
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end scenarios on the stub
+        run: npm run test:e2e
+      - name: Visual snapshots (non-blocking, no committed baseline)
+        continue-on-error: true
+        run: npm run test:visual
+      - name: UI metrics (non-blocking)
+        continue-on-error: true
+        run: npm run ui-metrics -- --out ui-metrics/report.json
+      - name: Upload test reports, snapshots and UI metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-ui-checks
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+            frontend/ui-metrics/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Build container and check static delivery plus REST and WS proxy
         run: |
           docker build -t proact-transport-frontend-smoke .

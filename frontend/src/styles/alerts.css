@@ -1,0 +1,21 @@
+/* Лента предупреждений: компактная карточка ≈ 72 px. */
+.alerts-panel { border-right: 1px solid var(--line-subtle); }
+.alerts-panel .ui-panel-header { padding: var(--sp-3) var(--sp-4) var(--sp-2); border-bottom: 1px solid var(--line-subtle); }
+.alerts-subheading { color: var(--text-secondary); font-size: var(--fs-12); }
+.alerts-tools { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line-subtle); }
+.alerts-scroll { overflow-y: auto; flex: 1; min-height: 0; padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
+.alert-item { position: relative; flex: none; width: 100%; min-height: 64px; display: grid; gap: var(--sp-1); align-content: center; color: var(--text-primary); text-align: left; background: var(--surface-1); border: 1px solid var(--line-subtle); border-left: 4px solid var(--risk, var(--risk-none)); border-radius: var(--r-card); padding: var(--sp-2) var(--sp-3); transition: background .15s, border-color .15s; }
+.alert-item:hover, .alert-item[aria-current="true"] { background: var(--surface-2); }
+/* Selection sits in the gutter, so the left edge keeps showing the risk colour. */
+.alert-item[aria-current="true"]::before { content: ''; position: absolute; top: -1px; bottom: -1px; left: -9px; width: 3px; border-radius: var(--r-pill); background: var(--accent); }
+.alert-item-top { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-13); font-weight: var(--fw-semibold); }
+.alert-delay { margin-left: auto; font-size: var(--fs-18); font-weight: var(--fw-semibold); line-height: var(--lh-ui); font-variant-numeric: tabular-nums; }
+.alert-item.risk-red .alert-delay, .alert-item.risk-yellow .alert-delay { color: var(--risk); }
+.alert-item-bottom { overflow: hidden; color: var(--text-secondary); font-size: var(--fs-12); white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.alert-item .stale-tag { justify-self: start; }
+.alerts-panel .ui-panel-title { font-size: var(--fs-15); }
+.alerts-panel .ui-panel-header { padding-bottom: var(--sp-2); }
+.alerts-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.alerts-tools .alerts-search { flex: 1 1 100%; min-width: 0; }
+.alerts-tools .alerts-filters { flex: none; margin-top: 0; }
+.alerts-tools .alerts-filters .ui-button { flex: none; padding-inline: var(--sp-2); }

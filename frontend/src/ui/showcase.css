@@ -1,0 +1,23 @@
+.showcase { max-width: 1200px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-8); }
+.showcase h1 { font-size: var(--fs-24); font-weight: var(--fw-semibold); }
+.showcase-lead { margin-top: var(--sp-2); color: var(--text-secondary); line-height: var(--lh-text); }
+.showcase code { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--text-secondary); }
+.showcase-section { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-8); }
+.showcase-section > h2 { padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line-subtle); font-size: var(--fs-18); font-weight: var(--fw-semibold); }
+.showcase-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4); }
+.showcase-label { width: 112px; flex: none; color: var(--text-tertiary); font-family: var(--font-mono); font-size: var(--fs-mono); letter-spacing: var(--ls-mono); text-transform: uppercase; }
+.showcase-items { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.showcase-cell { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 96px; }
+.showcase-cell small, .showcase-grid small { color: var(--text-tertiary); font-size: var(--fs-12); }
+.showcase-inline { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-12); }
+.showcase-segmented { display: flex; gap: var(--sp-1); }
+.showcase-stack { display: grid; gap: var(--sp-2); max-width: 480px; }
+.showcase-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-4); align-items: start; }
+.showcase-grid > div { display: grid; gap: var(--sp-2); }
+.showcase-panel { min-height: 240px; border: 1px solid var(--line-subtle); border-radius: var(--r-card); overflow: hidden; }
+.showcase-panel .ui-panel-header--compact { padding: var(--sp-4); color: var(--text-tertiary); font-size: var(--fs-12); }
+.showcase-inset { margin: 0 var(--sp-4) var(--sp-4); color: var(--text-secondary); font-size: var(--fs-12); }
+.showcase-overlay-host { min-height: 240px; place-items: center; border: 1px dashed var(--line-subtle); border-radius: var(--r-card); background: var(--bg-canvas); }
+.showcase-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--sp-2); }
+.showcase-swatch { display: flex; align-items: center; gap: var(--sp-2); }
+.showcase-swatch span { width: 32px; height: 24px; flex: none; border: 1px solid var(--line-control); border-radius: var(--r-control); }
