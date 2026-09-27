@@ -119,8 +119,28 @@ export interface ActionResponse {
  * sim_time runs ahead of the frame time; allow two seconds of wall time. */
 const STATUS_CLOCK_SKEW_US = 2_000_000
 
+/** Why a live frame was dropped before rendering; `json` is reported by the transport. */
+export type DropReason = 'json' | 'envelope' | 'vehicle' | 'alert' | 'status' | 'duplicate' | 'status-ahead'
+
+export const dropReasonText: Record<DropReason, string> = {
+  json: 'повреждённый JSON',
+  envelope: 'неизвестный тип или время кадра',
+  vehicle: 'некорректные данные борта',
+  alert: 'некорректное предупреждение',
+  status: 'некорректный статус системы',
+  duplicate: 'повтор tr_id или alert_id в кадре',
+  'status-ahead': 'статус опережает время кадра',
+}
+
+export type WsFrameResult = { message: WsMessage } | { reason: DropReason }
+
 /** Reject malformed live frames before they reach rendering components. */
 export function parseWsMessage(raw: unknown): WsMessage | null {
+  const result = parseWsFrame(raw)
+  return 'message' in result ? result.message : null
+}
+
+export function parseWsFrame(raw: unknown): WsFrameResult {
   const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
   const number = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
   const integer = (value: unknown): value is number => number(value) && Number.isSafeInteger(value)
@@ -164,18 +184,18 @@ export function parseWsMessage(raw: unknown): WsMessage | null {
     number(value.last_packet_age_s) && typeof value.ml_core_ok === 'boolean' &&
     typeof value.model_version === 'string'
 
-  if (!object(raw) || !['snapshot', 'alert', 'status'].includes(String(raw.type)) || !date(raw.sim_time)) return null
-  if (raw.vehicles != null && (!Array.isArray(raw.vehicles) || !raw.vehicles.every(vehicle) ||
-    new Set(raw.vehicles.map((item) => item.tr_id)).size !== raw.vehicles.length)) return null
-  if (raw.alerts != null && (!Array.isArray(raw.alerts) || !raw.alerts.every(alert) ||
-    new Set(raw.alerts.map((item) => item.alert_id)).size !== raw.alerts.length)) return null
-  if (raw.status != null && !status(raw.status)) return null
+  if (!object(raw) || !['snapshot', 'alert', 'status'].includes(String(raw.type)) || !date(raw.sim_time)) return { reason: 'envelope' }
+  if (raw.vehicles != null && (!Array.isArray(raw.vehicles) || !raw.vehicles.every(vehicle))) return { reason: 'vehicle' }
+  if (Array.isArray(raw.vehicles) && new Set(raw.vehicles.map((item) => item.tr_id)).size !== raw.vehicles.length) return { reason: 'duplicate' }
+  if (raw.alerts != null && (!Array.isArray(raw.alerts) || !raw.alerts.every(alert))) return { reason: 'alert' }
+  if (Array.isArray(raw.alerts) && new Set(raw.alerts.map((item) => item.alert_id)).size !== raw.alerts.length) return { reason: 'duplicate' }
+  if (raw.status != null && !status(raw.status)) return { reason: 'status' }
   const frameTime = contractTimeUs(raw.sim_time)
   if (raw.status != null) {
     const frameStatus = raw.status as { sim_time: string; replay_speed: number }
     // The allowance is wall time: at ×10 two seconds are twenty simulated seconds.
     const allowedSkewUs = Math.max(1, frameStatus.replay_speed) * STATUS_CLOCK_SKEW_US
-    if (contractTimeUs(frameStatus.sim_time) - frameTime > allowedSkewUs) return null
+    if (contractTimeUs(frameStatus.sim_time) - frameTime > allowedSkewUs) return { reason: 'status-ahead' }
   }
   // A record stamped after its frame (a backend race around a replay rewind) is
   // dropped on its own, so one inconsistent alert cannot blank the whole screen.
@@ -186,5 +206,5 @@ export function parseWsMessage(raw: unknown): WsMessage | null {
   const alerts = Array.isArray(raw.alerts)
     ? raw.alerts.filter((item) => !future(item.created_at) && !future(item.forecast?.issued_at))
     : raw.alerts
-  return { ...raw, vehicles, alerts } as unknown as WsMessage
+  return { message: { ...raw, vehicles, alerts } as unknown as WsMessage }
 }
