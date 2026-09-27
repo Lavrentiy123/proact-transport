@@ -1,0 +1,55 @@
+/* Map panel: a header row above the canvas, and at most four plates over it (legend, zoom, attribution, a state message). */
+.map-panel { position: relative; display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-1); }
+.map-header { flex: none; min-height: 40px; max-height: 40px; padding: 0 var(--sp-3); border-bottom: 1px solid var(--line-subtle); flex-wrap: nowrap; }
+.map-header .ui-panel-header-text { flex-wrap: nowrap; }
+.map-header-actions { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.map-basemap-status { color: var(--text-secondary); font-size: var(--fs-12); white-space: nowrap; }
+.map-overview-button { flex: none; }
+.map-vehicle-picker { display: flex; align-items: center; gap: var(--sp-1); color: var(--text-secondary); font-size: var(--fs-12); }
+.map-vehicle-picker select { min-width: 78px; max-width: 105px; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--line-control); border-radius: var(--r-control); padding: var(--sp-1); font-size: var(--fs-12); }
+.map-stage { position: relative; flex: 1 1 auto; min-height: 0; }
+.map-panel .map-canvas { position: absolute; inset: 0; }
+.map-grid-overlay { position: absolute; inset: 0; pointer-events: none; opacity: .14; background-image: linear-gradient(var(--line-control) 1px, transparent 1px), linear-gradient(90deg, var(--line-control) 1px, transparent 1px); background-size: 54px 54px; }
+.map-legend { position: absolute; z-index: var(--z-map-overlay); left: var(--sp-3); bottom: var(--sp-3); display: grid; gap: var(--sp-1); max-width: calc(100% - 72px); padding: var(--sp-2) var(--sp-3); background: var(--surface-1); border: 1px solid var(--line-subtle); border-radius: var(--r-control); font-size: var(--fs-12); line-height: var(--lh-ui); }
+.map-legend-items { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin: 0; padding: 0; list-style: none; color: var(--text-primary); }
+.map-legend-items li { display: flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
+.map-legend-shape { width: 12px; height: 12px; flex: none; fill: var(--risk); stroke: var(--text-primary); stroke-width: 1.5; }
+.map-legend-items .risk-red .map-legend-shape { width: 14px; height: 14px; }
+.map-count { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.map-count span { color: var(--text-secondary); }
+.legend-dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: var(--r-pill); }
+.legend-target { background: var(--accent); outline: 2px solid var(--text-primary); outline-offset: 0; }
+.map-overlap-list { position: absolute; z-index: var(--z-popover); bottom: var(--sp-3); right: 56px; display: grid; gap: var(--sp-2); width: min(300px, calc(100% - 72px)); max-height: calc(100% - 24px); overflow-y: auto; padding: var(--sp-3); border: 1px solid var(--line-control); border-radius: var(--r-card); background: var(--surface-2); box-shadow: var(--shadow-popover); font-size: var(--fs-12); }
+.map-overlap-list > div { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.map-overlap-list .map-overlap-close { justify-self: start; }
+.map-empty { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-map-overlay); white-space: nowrap; }
+/* The bare class is the map loading fallback in App.tsx. */
+.map-empty:not(.ui-empty) { padding: var(--sp-6); border: 1px solid var(--line-subtle); border-radius: var(--r-card); background: var(--surface-1); color: var(--text-secondary); font-size: var(--fs-12); }
+.map-unavailable { position: absolute; z-index: var(--z-map-overlay); inset: var(--sp-3) var(--sp-3) 96px; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); overflow: hidden; padding: var(--sp-4); border: 1px solid var(--line-subtle); border-radius: var(--r-card); background: var(--surface-1); color: var(--text-secondary); font-size: var(--fs-12); }
+.map-unavailable strong { color: var(--text-primary); font-size: var(--fs-15); }
+.map-fallback-list { display: flex; flex-wrap: wrap; align-content: flex-start; gap: var(--sp-2); width: 100%; overflow-y: auto; padding-top: var(--sp-1); }
+/* MapLibre CSS arrives later with the lazy map chunk; these selectors must outrank it. */
+.map-panel .maplibregl-map { font-family: var(--font-sans); }
+.map-panel .maplibregl-ctrl-group, .map-panel .maplibregl-ctrl-group:not(:empty) { background: var(--surface-2); border: 1px solid var(--line-control); box-shadow: none; }
+.map-panel .maplibregl-ctrl-group button + button { border-top-color: var(--line-control); }
+.map-panel .maplibregl-ctrl-group button span { filter: invert(1); }
+.map-panel .maplibregl-ctrl.maplibregl-ctrl-attrib, .map-panel .maplibregl-ctrl-attrib.maplibregl-compact { background: var(--surface-1) !important; border: 1px solid var(--line-subtle); border-radius: var(--r-control); color: var(--text-secondary); font-size: var(--fs-12); }
+.map-panel .maplibregl-ctrl-attrib a { color: var(--text-secondary); }
+.map-panel .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button { border-radius: var(--r-control); }
+.map-panel .maplibregl-popup-content { color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--line-control); border-radius: var(--r-control); box-shadow: var(--shadow-popover); font-size: var(--fs-12); }
+.map-panel :is(.maplibregl-popup-anchor-top, .maplibregl-popup-anchor-top-left, .maplibregl-popup-anchor-top-right) .maplibregl-popup-tip { border-bottom-color: var(--surface-2); }
+.map-panel :is(.maplibregl-popup-anchor-bottom, .maplibregl-popup-anchor-bottom-left, .maplibregl-popup-anchor-bottom-right) .maplibregl-popup-tip { border-top-color: var(--surface-2); }
+.map-panel .maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--surface-2); }
+.map-panel .maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--surface-2); }
+@media (max-width: 980px) {
+  .map-panel { grid-column: 1 / -1; grid-row: 1; height: auto; min-height: 460px; }
+}
+@media (max-width: 640px) {
+  .map-panel { order: 2; min-height: 390px; }
+  .map-header { padding: 0 var(--sp-2); }
+  .map-header-actions { gap: var(--sp-1); }
+  .map-vehicle-picker > span { display: none; }
+  .map-legend { left: var(--sp-2); bottom: var(--sp-2); max-width: calc(100% - 60px); padding: var(--sp-2); }
+  .map-legend-items { gap: var(--sp-1) var(--sp-2); }
+  .map-unavailable { inset: var(--sp-2) var(--sp-2) 110px; padding: var(--sp-3); }
+}
