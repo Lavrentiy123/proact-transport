@@ -4,7 +4,7 @@ import AlertList from './components/AlertList'
 import IncidentCard, { type ActionOutcome } from './components/IncidentCard'
 import MareyChart from './components/MareyChart'
 import StatusBar from './components/StatusBar'
-import { connectLive, emptyLiveFieldTimes, emptyLiveSnapshot, fetchHorizon, fetchTrack, isRewind, isVehicleSnapshot, mergeLiveFrame, postAction, startLiveEpoch, vehicleLagSeconds, type ConnectionState } from './data/liveTransport'
+import { connectLive, emptyLiveFieldTimes, emptyLiveSnapshot, fetchHorizon, fetchTrack, isClockJump, isVehicleSnapshot, mergeLiveFrame, postAction, startLiveEpoch, vehicleLagSeconds, type ConnectionState } from './data/liveTransport'
 import { replaySnapshot, replayTrack, REPLAY_DURATION_S } from './data/replay'
 import { scenarioSnapshot, type Scenario } from './data/scenarios'
 import type { Alert, HorizonMetrics, TrackResponse, WsMessage } from './types/contracts'
@@ -59,6 +59,10 @@ export default function App() {
   const pendingSessionSnapshotRef = useRef<WsMessage>(emptyLiveSnapshot)
   const pendingSessionTimesRef = useRef(emptyLiveFieldTimes())
   const trackRequestGenerationRef = useRef(0)
+  // Automatic selection follows the stream only until the dispatcher picks something.
+  const pickedByUserRef = useRef(false)
+  // Responses to dispatcher actions from a previous source or replay session are dropped.
+  const actionSessionRef = useRef(0)
   const [liveEpoch, setLiveEpoch] = useState(0)
   const [liveTrack, setLiveTrack] = useState<TrackResponse | null>(null)
   const [trackError, setTrackError] = useState(false)
@@ -138,9 +142,10 @@ export default function App() {
           pendingSessionTimesRef.current = buffered.times
           return
         }
-        // A rewind on the same connection resets backend alerts, so it starts a
-        // new epoch exactly like a reconnect does.
-        const newEpoch = awaitingSession || isRewind(message, liveFieldTimesRef.current)
+        // A replay clock jump on the same connection resets backend alerts, so it
+        // starts a new epoch exactly like a reconnect does.
+        const clockJump = !awaitingSession && isClockJump(message, liveFieldTimesRef.current)
+        const newEpoch = awaitingSession || clockJump
         const previousTime = newEpoch ? '' : liveSnapshotRef.current.sim_time
         const result = newEpoch
           ? startLiveEpoch(message, pendingSessionSnapshotRef.current, pendingSessionTimesRef.current)
@@ -153,7 +158,11 @@ export default function App() {
           setLiveTrack(null)
           setTrackLoading(false)
           setTrackError(false)
-          setOutcomes({})
+          // A plain reconnect keeps backend alerts, so their outcomes stay visible.
+          if (clockJump) {
+            setOutcomes({})
+            actionSessionRef.current += 1
+          }
           setLiveEpoch((current) => current + 1)
           setSelectedAlertId(null)
           setHasLiveAlertSnapshot(Number.isFinite(result.times.alerts))
@@ -204,13 +213,16 @@ export default function App() {
     if (next !== selectedAlertId) setSelectedAlertId(next)
   }, [alerts, selectedTrId, selectedAlertId])
 
-  // Пока ничего не выбрано, карточка открывает самое срочное предупреждение потока.
+  // Пока диспетчер сам ничего не выбирал, карточка следует за потоком: открывается самое срочное
+  // предупреждение, а борт без предупреждения сменяется, как только предупреждение появится.
+  // Если выбранный вручную борт выпал из потока, карточка остаётся пустой до нового выбора.
   useEffect(() => {
-    if (source !== 'live' || selectedTrId != null || !liveSnapshot?.vehicles) return
+    if (source !== 'live' || pickedByUserRef.current || !liveSnapshot?.vehicles) return
     const top = (liveSnapshot.alerts ?? []).filter((item) => item.status === 'active')
       .sort((a, b) => b.priority - a.priority || b.created_at.localeCompare(a.created_at))[0]
+    if (selectedTrId != null && (!top || topActiveAlert(liveSnapshot.alerts ?? [], selectedTrId))) return
     const next = top?.tr_id ?? liveSnapshot.vehicles.find((item) => item.forecast)?.tr_id
-    if (next == null) return
+    if (next == null || next === selectedTrId) return
     setSelectedTrId(next)
     setSelectedAlertId(top?.alert_id ?? null)
   }, [source, selectedTrId, liveSnapshot])
@@ -283,6 +295,7 @@ export default function App() {
   }, [source])
 
   async function handleAction(target: Alert, action: 'apply' | 'dismiss') {
+    const session = actionSessionRef.current
     if (source === 'demo') {
       const outcome: ActionOutcome = {
         alert_id: target.alert_id,
@@ -297,8 +310,10 @@ export default function App() {
     }
     try {
       const response = await postAction(target.alert_id, action)
+      if (session !== actionSessionRef.current) return
       setOutcomes((current) => ({ ...current, [target.tr_id]: response }))
     } catch (error: unknown) {
+      if (session !== actionSessionRef.current) return
       const message = error instanceof DOMException && error.name === 'TimeoutError' ? 'нет ответа 8 секунд'
         : error instanceof Error ? error.message : 'ошибка сети'
       setOutcomes((current) => ({ ...current, [target.tr_id]: { alert_id: target.alert_id, error: message } }))
@@ -325,6 +340,8 @@ export default function App() {
     setResetMapViewToken((current) => current + 1)
     setSource(next)
     setOutcomes({})
+    pickedByUserRef.current = false
+    actionSessionRef.current += 1
     setLiveConnectedAt(null)
     setSelectedTrId(next === 'demo' ? (scenario === 'empty' ? null : defaultDemoTrId) : null)
     setSelectedAlertId(next === 'demo' && scenario !== 'empty' ? defaultDemoAlert?.alert_id ?? null : null)
@@ -345,6 +362,7 @@ export default function App() {
   }
 
   function selectVehicle(trId: number) {
+    pickedByUserRef.current = true
     setSelectedTrId(trId)
     setSelectedAlertId(topActiveAlert(alerts, trId)?.alert_id ?? null)
     setFocusSelectionToken((current) => current + 1)
@@ -370,12 +388,12 @@ export default function App() {
       {mlDown && <div className="degraded-banner" role="status"><CloudOff size={17} /> ML-ядро недоступно: прогнозы «по расписанию» до восстановления сервиса.</div>}
       {source === 'live' && trackError && <div className="route-banner" role="status">Маршрут выбранного борта недоступен. Положение и прогноз из потока продолжают отображаться.</div>}
       <div className="workbench">
-        <AlertList alerts={alerts} vehicles={vehicles} selectedTrId={selectedTrId} selectedAlertId={alert?.alert_id ?? null} simTime={snapshot.sim_time} loading={!hasAlertSnapshot} connected={connected} onSelect={(trId, alertId) => { setSelectedTrId(trId); setSelectedAlertId(alertId); setFocusSelectionToken((current) => current + 1) }} />
+        <AlertList alerts={alerts} vehicles={vehicles} selectedTrId={selectedTrId} selectedAlertId={alert?.alert_id ?? null} simTime={snapshot.sim_time} loading={!hasAlertSnapshot} feed={!connected ? 'paused' : degraded ? 'degraded' : 'live'} onSelect={(trId, alertId) => { pickedByUserRef.current = true; setSelectedTrId(trId); setSelectedAlertId(alertId); setFocusSelectionToken((current) => current + 1) }} />
         <Suspense fallback={<section className="map-panel" aria-label="Карта движения бортов"><div className="map-empty">Загрузка карты…</div></section>}>
           <VehicleMap source={source} vehicles={vehicles} selectedTrId={selectedTrId} selectedRisk={displayForecast?.risk ?? null} focusSelectionToken={focusSelectionToken} resetViewToken={resetMapViewToken} track={track} loading={!hasVehicleSnapshot} onSelect={selectVehicle}
             networkTracks={source === 'live' ? networkTracks : undefined} simTime={snapshot.sim_time} />
         </Suspense>
-        <IncidentCard source={source} connected={connected} vehicle={vehicle} alert={alert} forecast={displayForecast} simTime={snapshot.sim_time} positionAgeS={vehicle ? vehicle.last_seen_s + (source === 'live' ? Math.max(liveWallAgeS, liveTimeLagS) : 0) : null} forecastWallAgeS={source === 'live' && lastStreamAdvanceAt != null ? Math.max(0, (wallNow - lastStreamAdvanceAt) / 1000) : 0}
+        <IncidentCard key={selectedTrId ?? 'none'} source={source} connected={connected} vehicle={vehicle} alert={alert} forecast={displayForecast} simTime={snapshot.sim_time} positionAgeS={vehicle ? vehicle.last_seen_s + (source === 'live' ? Math.max(liveWallAgeS, liveTimeLagS) : 0) : null} forecastWallAgeS={source === 'live' && lastStreamAdvanceAt != null ? Math.max(0, (wallNow - lastStreamAdvanceAt) / 1000) : 0}
           segmentFrom={segmentFrom} outcome={outcome} onAction={handleAction} hasSchedule={hasSchedule} />
       </div>
       <MareyChart source={source} track={track} forecast={displayForecast} simTime={snapshot.sim_time} loading={source === 'live' && trackLoading} routeError={source === 'live' && trackError} />

@@ -40,7 +40,11 @@ export default function StatusBar({
   const degraded = connected && mode === 'DEGRADED'
   const waiting = source === 'live' && liveConnection === 'connected' && !connected
   const count = (value: number) => hasVehicleSnapshot ? value : '—'
-  const pillState = !connected ? waiting ? 'is-waiting' : 'is-disconnected' : degraded ? 'is-degraded' : 'is-connected'
+  // A broken socket outranks the stale-data detector: the dispatcher must see that the link is down.
+  const offline = source === 'demo' ? !connected : liveConnection === 'disconnected'
+  const connecting = source === 'live' && liveConnection === 'connecting'
+  const pillState = connected ? degraded ? 'is-degraded' : 'is-connected' : offline ? 'is-disconnected' : 'is-waiting'
+  const pillText = connected ? degraded ? 'ДЕГРАДАЦИЯ' : mode : offline ? 'НЕТ СВЯЗИ' : connecting ? 'ПОДКЛЮЧЕНИЕ' : liveStalled ? 'ДАННЫЕ УСТАРЕЛИ' : waiting ? 'ОЖИДАНИЕ ДАННЫХ' : 'НЕТ СВЯЗИ'
   const dotState = source === 'demo' ? connected ? 'is-ok' : 'is-bad'
     : connected ? degraded ? 'is-wait' : 'is-ok' : liveConnection === 'disconnected' ? 'is-bad' : 'is-wait'
 
@@ -57,7 +61,7 @@ export default function StatusBar({
         <div className="topbar-right">
           <div className={`mode-pill ${pillState}`} title={degraded ? 'Пакетов NDTP нет дольше 15 с: прогноз по расписанию' : undefined}>
             {degraded ? <TriangleAlert size={15} /> : connected ? <Wifi size={15} /> : <WifiOff size={15} />}
-            <span>{degraded ? 'ДЕГРАДАЦИЯ' : connected ? mode : liveStalled ? 'ДАННЫЕ УСТАРЕЛИ' : waiting ? 'ОЖИДАНИЕ ДАННЫХ' : 'НЕТ СВЯЗИ'}</span>
+            <span>{pillText}</span>
           </div>
           <div className="header-time"><Clock3 size={17} /> {displayClock(snapshot.sim_time)} <span>МСК</span></div>
           <div className="header-day">{displayDay(snapshot.sim_time)}</div>
@@ -86,7 +90,7 @@ export default function StatusBar({
       </section>
 
       <section className="demo-toolbar" aria-label="Управление источником данных">
-        <div className="demo-toolbar-label"><span className={`demo-dot ${dotState}`} />{source === 'demo' ? 'Демо-сценарий' : degraded ? 'Поток в деградации' : connected ? 'Поток подключён' : liveStalled ? 'Данные устарели' : waiting ? 'Ожидаем снимок' : liveConnection === 'disconnected' ? 'Нет связи с потоком' : 'Подключение к потоку'}</div>
+        <div className="demo-toolbar-label"><span className={`demo-dot ${dotState}`} />{source === 'demo' ? 'Демо-сценарий' : degraded ? 'Поток в деградации' : connected ? 'Поток подключён' : offline ? 'Нет связи с потоком' : connecting ? 'Подключение к потоку' : liveStalled ? 'Данные устарели' : 'Ожидаем снимок'}</div>
         <div className="toolbar-controls">
           <label className="toolbar-select-label" htmlFor="source-select">Источник</label>
           <select id="source-select" value={source} onChange={(event) => onSourceChange(event.target.value as 'demo' | 'live')}>
