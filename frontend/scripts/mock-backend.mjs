@@ -36,11 +36,11 @@ if (alertCount !== base.alerts.length) {
 const port = Number(process.env.STUB_PORT ?? 8000)
 if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('STUB_PORT must be a valid TCP port')
 const stubCase = process.env.STUB_CASE ?? 'normal'
-const allowedCases = new Set(['normal', 'bad-frame', 'track-race', 'track-500', 'track-timeout', 'drop-selected', 'partial-alert', 'partial-status', 'partial-both'])
+const allowedCases = new Set(['normal', 'bad-frame', 'track-race', 'track-500', 'track-timeout', 'drop-selected', 'partial-alert', 'partial-status', 'partial-both', 'slow-first', 'long-track'])
 if (!allowedCases.has(stubCase)) throw new Error(`STUB_CASE must be one of: ${[...allowedCases].join(', ')}`)
 const targetTrId = Number(process.env.STUB_TR_ID ?? 131672)
 if (!Number.isSafeInteger(targetTrId)) throw new Error('STUB_TR_ID must be an integer')
-const triggerTick = Number(process.env.STUB_TRIGGER_TICK ?? (stubCase === 'drop-selected' ? 5 : 3))
+const triggerTick = Number(process.env.STUB_TRIGGER_TICK ?? (stubCase === 'drop-selected' || stubCase === 'slow-first' ? 5 : 3))
 if (!Number.isSafeInteger(triggerTick) || triggerTick < 1) throw new Error('STUB_TRIGGER_TICK must be a positive integer')
 const delayMs = Number(process.env.STUB_DELAY_MS ?? (stubCase === 'track-timeout' ? 9000 : 3500))
 if (!Number.isSafeInteger(delayMs) || delayMs < 0 || delayMs > 60000) throw new Error('STUB_DELAY_MS must be 0..60000')
@@ -49,6 +49,30 @@ if (stubCase === 'track-race' && delayMs >= 8000) throw new Error('track-race re
 if (['track-race', 'track-500', 'track-timeout'].includes(stubCase) && !mockTracks[targetTrId]) throw new Error('STUB_TR_ID needs a mock track for this case')
 if (['track-race', 'track-500', 'track-timeout'].includes(stubCase) && !base.vehicles.some((item) => item.tr_id === targetTrId)) throw new Error('STUB_TR_ID needs a vehicle in the stub snapshot')
 if (stubCase === 'drop-selected' && !base.vehicles.some((item) => item.tr_id === targetTrId)) throw new Error('STUB_TR_ID needs a vehicle in the stub snapshot')
+let longTrack = null
+if (stubCase === 'long-track') {
+  const original = mockTracks[131672]
+  const forecast = base.vehicles.find((item) => item.tr_id === 131672)?.forecast
+  if (!forecast) throw new Error('long-track requires the default 3-vehicle snapshot')
+  const first = original.stops[0]
+  const target = original.stops.at(-1)
+  const firstMs = Date.parse(`${first.time_plan}Z`)
+  const targetMs = Date.parse(`${forecast.target_time_plan}Z`)
+  longTrack = { tr_id: 131672, trail: original.trail, stops: Array.from({ length: 35 }, (_, index) => {
+    if (index === 0) return { ...first }
+    const fraction = index / 34
+    return {
+      stop_id: index === 34 ? forecast.target_stop_id : first.stop_id + 1000 + index,
+      name: index === 34 ? forecast.target_stop_name : `Промежуточная остановка ${index}`,
+      lat: Number((first.lat + (target.lat - first.lat) * fraction).toFixed(6)),
+      lon: Number((first.lon + (target.lon - first.lon) * fraction).toFixed(6)),
+      seq: index + 1,
+      time_plan: new Date(firstMs + Math.round((targetMs - firstMs) * fraction)).toISOString().slice(0, 19),
+      time_fact: null,
+      time_forecast: null,
+    }
+  }) }
+}
 const wsServer = new WebSocketServer({ noServer: true })
 const clientTicks = new WeakMap()
 let tick = 0
@@ -68,7 +92,7 @@ const server = http.createServer((request, response) => {
   const match = /^\/api\/v1\/tracks\/(\d+)$/.exec(path)
   if (match) {
     const trId = Number(match[1])
-    const track = mockTracks[trId]
+    const track = stubCase === 'long-track' && trId === 131672 ? longTrack : mockTracks[trId]
     if (trId === targetTrId && stubCase === 'track-500') return sendJson(response, 500, { detail: 'stub track failure' })
     if (trId === targetTrId && ['track-race', 'track-timeout'].includes(stubCase)) {
       setTimeout(() => { if (!response.destroyed) sendJson(response, track ? 200 : 404, track ?? { detail: 'not found' }) }, delayMs)
@@ -99,6 +123,7 @@ const timer = setInterval(() => {
     if (client.readyState !== 1) continue
     const clientTick = (clientTicks.get(client) ?? 0) + 1
     clientTicks.set(client, clientTick)
+    if (stubCase === 'slow-first' && clientTick <= triggerTick) continue
     if (stubCase === 'bad-frame' && clientTick === triggerTick) {
       client.send('{"type":"snapshot","sim_time":')
       continue
@@ -121,7 +146,7 @@ const timer = setInterval(() => {
 
 wsServer.on('connection', (client) => {
   clientTicks.set(client, 0)
-  client.send(JSON.stringify({ ...latestSnapshot, status: { ...latestSnapshot.status, mode: 'LIVE' } }))
+  if (stubCase !== 'slow-first') client.send(JSON.stringify({ ...latestSnapshot, status: { ...latestSnapshot.status, mode: 'LIVE' } }))
 })
 server.listen(port, () => console.log(`Frontend test stream: http://localhost:${port} · ${vehicleCount} vehicles · ${alertCount} alerts · case ${stubCase}`))
 process.on('SIGINT', () => { clearInterval(timer); wsServer.close(); server.close() })

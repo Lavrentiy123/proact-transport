@@ -27,6 +27,7 @@ export default function App() {
   const [playing, setPlaying] = useState(true)
   const [liveSnapshot, setLiveSnapshot] = useState<WsMessage | null>(null)
   const [liveConnection, setLiveConnection] = useState<ConnectionState>('disconnected')
+  const [liveConnectedAt, setLiveConnectedAt] = useState<number | null>(null)
   const [livePositionsFresh, setLivePositionsFresh] = useState(false)
   const [hasLiveVehicleSnapshot, setHasLiveVehicleSnapshot] = useState(false)
   const [hasLiveAlertSnapshot, setHasLiveAlertSnapshot] = useState(false)
@@ -51,6 +52,8 @@ export default function App() {
   const liveWallAgeS = source === 'live' && lastVehicleFrameAt != null ? Math.max(0, (wallNow - lastVehicleFrameAt) / 1000) : 0
   const liveStalled = source === 'live' && (liveTimeLagS > 15 || liveWallAgeS > 15)
   const connected = source === 'demo' ? scenario !== 'disconnected' : liveConnection === 'connected' && livePositionsFresh && !liveStalled
+  const waitingTooLong = source === 'live' && liveConnection === 'connected' && !livePositionsFresh &&
+    liveConnectedAt != null && wallNow - liveConnectedAt >= 5_000
   const hasVehicleSnapshot = source === 'demo' || hasLiveVehicleSnapshot
   const hasAlertSnapshot = source === 'demo' || hasLiveAlertSnapshot
   const vehicles = useMemo(() => source === 'live' && !connected
@@ -127,6 +130,7 @@ export default function App() {
       (state) => {
         if (generation !== liveGenerationRef.current) return
         setLiveConnection(state)
+        setLiveConnectedAt(state === 'connected' ? Date.now() : null)
         setLivePositionsFresh(false)
         if (state === 'connected') {
           awaitingVehicleSnapshotRef.current = true
@@ -184,6 +188,7 @@ export default function App() {
     trackRequestGenerationRef.current += 1
     setResetMapViewToken((current) => current + 1)
     setSource(next)
+    setLiveConnectedAt(null)
     setSelectedTrId(next === 'demo' ? (scenario === 'empty' ? null : defaultDemoTrId) : null)
     setSelectedAlertId(next === 'demo' && scenario !== 'empty' ? defaultDemoAlert?.alert_id ?? null : null)
     if (next === 'live') {
@@ -217,10 +222,13 @@ export default function App() {
         playing={playing} onScenarioChange={changeScenario} onTogglePlayback={() => setPlaying((value) => !value)}
         onRestart={() => { setElapsedSeconds(0); setPlaying(scenario !== 'disconnected') }} onSourceChange={changeSource}
       />
-      {!connected && <div className="connection-banner" role="status"><SignalZero size={17} /> {source === 'live'
-        ? liveConnection === 'connected' ? liveStalled ? 'Данные о бортах не обновляются более 15 секунд. Показан последний снимок.' : 'Соединение установлено. Ожидаем новый снимок с положением бортов.'
+      {!connected && <div className="connection-banner" role="status"><SignalZero size={17} /><span className="connection-message">{source === 'live'
+        ? liveConnection === 'connected' ? waitingTooLong ? 'Данные о бортах не поступают. Проверьте источник или вернитесь в демо.'
+          : liveStalled ? 'Данные о бортах не обновляются более 15 секунд. Показан последний снимок.' : 'Соединение установлено. Ожидаем новый снимок с положением бортов.'
           : liveConnection === 'connecting' ? 'Подключение к живому потоку…' : 'Живой поток недоступен. Повторное подключение выполняется автоматически.'
-        : 'Демо-поток прерван. На экране последний снимок; положение бортов может быть устаревшим.'}</div>}
+        : 'Демо-поток прерван. На экране последний снимок; положение бортов может быть устаревшим.'}</span>
+        {waitingTooLong && <button type="button" className="connection-action" onClick={() => changeSource('demo')}>Вернуться в демо</button>}
+      </div>}
       {source === 'live' && trackError && <div className="route-banner">Маршрут выбранного борта недоступен. Положение и прогноз из потока продолжают отображаться.</div>}
       <div className="workbench">
         <AlertList alerts={alerts} vehicles={vehicles} selectedTrId={selectedTrId} selectedAlertId={alert?.alert_id ?? null} simTime={snapshot.sim_time} loading={!hasAlertSnapshot} onSelect={(trId, alertId) => { setSelectedTrId(trId); setSelectedAlertId(alertId); setFocusSelectionToken((current) => current + 1) }} />
